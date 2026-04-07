@@ -1,8 +1,324 @@
-import { Users, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Plus, Pencil, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Card, CardContent } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useProfiles, useUpdateProfile, useInviteUser } from '@/hooks/useProfiles'
+import { useClassifications } from '@/hooks/useClassifications'
+import { useVehicles } from '@/hooks/useVehicles'
+import type { Database } from '@/lib/database.types'
 
+type Profile = Database['public']['Tables']['profiles']['Row']
+
+// ---- Edit user dialog ----
+const editSchema = z.object({
+  first_name: z.string().min(1, 'Required'),
+  last_name: z.string().min(1, 'Required'),
+  role: z.enum(['tech', 'admin']),
+  is_readonly_admin: z.boolean(),
+  classification_id: z.string().nullable().optional(),
+  default_vehicle_id: z.string().nullable().optional(),
+  active: z.boolean(),
+})
+type EditForm = z.infer<typeof editSchema>
+
+function EditUserDialog({
+  open, onClose, user,
+}: {
+  open: boolean
+  onClose: () => void
+  user: Profile
+}) {
+  const update = useUpdateProfile()
+  const { data: classifications = [] } = useClassifications()
+  const { data: vehicles = [] } = useVehicles()
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditForm>({
+    resolver: zodResolver(editSchema),
+    defaultValues: {
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role,
+      is_readonly_admin: user.is_readonly_admin,
+      classification_id: user.classification_id,
+      default_vehicle_id: user.default_vehicle_id,
+      active: user.active,
+    },
+  })
+
+  const role = watch('role')
+
+  async function onSubmit(data: EditForm) {
+    await update.mutateAsync({
+      id: user.id,
+      ...data,
+      classification_id: data.classification_id || null,
+      default_vehicle_id: data.default_vehicle_id || null,
+      is_readonly_admin: data.role === 'admin' ? data.is_readonly_admin : false,
+    })
+    onClose()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit User</DialogTitle>
+          <DialogDescription>{user.email}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>First Name *</Label>
+              <Input {...register('first_name')} />
+              {errors.first_name && <p className="text-xs text-destructive">{errors.first_name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Last Name *</Label>
+              <Input {...register('last_name')} />
+              {errors.last_name && <p className="text-xs text-destructive">{errors.last_name.message}</p>}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Role</Label>
+            <Select value={watch('role')} onValueChange={v => setValue('role', v as 'tech' | 'admin')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tech">Tech</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {role === 'admin' && (
+            <div className="flex items-center gap-3 rounded-md border p-3">
+              <Switch
+                id="readonly"
+                checked={watch('is_readonly_admin')}
+                onCheckedChange={v => setValue('is_readonly_admin', v)}
+              />
+              <div>
+                <Label htmlFor="readonly">Read-only admin</Label>
+                <p className="text-xs text-muted-foreground">Can view and export, but cannot edit tickets or set rates.</p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label>Classification (default for tickets)</Label>
+            <Select
+              value={watch('classification_id') ?? 'none'}
+              onValueChange={v => setValue('classification_id', v === 'none' ? null : v)}
+            >
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {classifications.filter(c => c.active).map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Default Vehicle</Label>
+            <Select
+              value={watch('default_vehicle_id') ?? 'none'}
+              onValueChange={v => setValue('default_vehicle_id', v === 'none' ? null : v)}
+            >
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {vehicles.filter(v => v.active).map(v => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.label}{v.description ? ` — ${v.description}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Switch
+              id="active"
+              checked={watch('active')}
+              onCheckedChange={v => setValue('active', v)}
+            />
+            <Label htmlFor="active">Account active</Label>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={update.isPending}>
+              {update.isPending ? 'Saving…' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---- Invite user dialog ----
+const inviteSchema = z.object({
+  email: z.string().email('Invalid email'),
+  first_name: z.string().min(1, 'Required'),
+  last_name: z.string().min(1, 'Required'),
+  role: z.enum(['tech', 'admin']),
+  is_readonly_admin: z.boolean(),
+  classification_id: z.string().nullable().optional(),
+  default_vehicle_id: z.string().nullable().optional(),
+})
+type InviteForm = z.infer<typeof inviteSchema>
+
+function InviteUserDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const invite = useInviteUser()
+  const { data: classifications = [] } = useClassifications()
+  const { data: vehicles = [] } = useVehicles()
+  const [serverError, setServerError] = useState<string | null>(null)
+
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<InviteForm>({
+    resolver: zodResolver(inviteSchema),
+    defaultValues: { role: 'tech', is_readonly_admin: false },
+  })
+
+  const role = watch('role')
+
+  async function onSubmit(data: InviteForm) {
+    setServerError(null)
+    try {
+      await invite.mutateAsync({
+        ...data,
+        classification_id: data.classification_id || null,
+        default_vehicle_id: data.default_vehicle_id || null,
+      })
+      reset()
+      onClose()
+    } catch (e: unknown) {
+      setServerError(e instanceof Error ? e.message : 'Failed to create user')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add User</DialogTitle>
+          <DialogDescription>
+            Creates an account. The user will receive a password reset email to set their password.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Email *</Label>
+            <Input type="email" {...register('email')} />
+            {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>First Name *</Label>
+              <Input {...register('first_name')} />
+              {errors.first_name && <p className="text-xs text-destructive">{errors.first_name.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>Last Name *</Label>
+              <Input {...register('last_name')} />
+              {errors.last_name && <p className="text-xs text-destructive">{errors.last_name.message}</p>}
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Role</Label>
+            <Select value={watch('role')} onValueChange={v => setValue('role', v as 'tech' | 'admin')}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tech">Tech</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {role === 'admin' && (
+            <div className="flex items-center gap-3 rounded-md border p-3">
+              <Switch
+                id="inv-readonly"
+                checked={watch('is_readonly_admin')}
+                onCheckedChange={v => setValue('is_readonly_admin', v)}
+              />
+              <div>
+                <Label htmlFor="inv-readonly">Read-only admin</Label>
+                <p className="text-xs text-muted-foreground">View and export only.</p>
+              </div>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Classification</Label>
+            <Select
+              value={watch('classification_id') ?? 'none'}
+              onValueChange={v => setValue('classification_id', v === 'none' ? null : v)}
+            >
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {classifications.filter(c => c.active).map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Default Vehicle</Label>
+            <Select
+              value={watch('default_vehicle_id') ?? 'none'}
+              onValueChange={v => setValue('default_vehicle_id', v === 'none' ? null : v)}
+            >
+              <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {vehicles.filter(v => v.active).map(v => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.label}{v.description ? ` — ${v.description}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={invite.isPending}>
+              {invite.isPending ? 'Creating…' : 'Create User'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---- Main page ----
 export function AdminUsersPage() {
+  const { data: users = [], isLoading } = useProfiles()
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [editing, setEditing] = useState<Profile | null>(null)
+
+  function roleBadge(u: Profile) {
+    if (u.role === 'admin') {
+      return u.is_readonly_admin
+        ? <Badge variant="outline">Admin (read-only)</Badge>
+        : <Badge variant="default">Admin</Badge>
+    }
+    return <Badge variant="secondary">Tech</Badge>
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -10,22 +326,73 @@ export function AdminUsersPage() {
           <h1 className="text-2xl font-bold">Users</h1>
           <p className="text-muted-foreground text-sm">Manage team members and permissions</p>
         </div>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add User
+        <Button className="gap-2" onClick={() => setInviteOpen(true)}>
+          <Plus className="h-4 w-4" /> Add User
         </Button>
       </div>
+
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Team Members</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
-            <Users className="h-8 w-8 opacity-30" />
-            <p className="text-sm">User management coming in Phase 1</p>
-          </div>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : users.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-14 text-muted-foreground gap-2">
+              <Users className="h-8 w-8 opacity-30" />
+              <p className="text-sm">No users yet.</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="hidden sm:table-cell">Classification</TableHead>
+                  <TableHead className="hidden lg:table-cell">Vehicle</TableHead>
+                  <TableHead>Active</TableHead>
+                  <TableHead className="w-20" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map(u => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">
+                      {u.first_name} {u.last_name}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                      {u.email}
+                    </TableCell>
+                    <TableCell>{roleBadge(u)}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                      {(u as unknown as { classifications: { name: string } | null }).classifications?.name ?? '—'}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
+                      {(u as unknown as { vehicles: { label: string } | null }).vehicles?.label ?? '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={u.active ? 'success' : 'outline'}>
+                        {u.active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing(u)}>
+                        <Pencil className="h-3.5 w-3.5" /> Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
+
+      <InviteUserDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      {editing && (
+        <EditUserDialog open={!!editing} onClose={() => setEditing(null)} user={editing} />
+      )}
     </div>
   )
 }

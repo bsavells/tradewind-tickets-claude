@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   X,
+  Settings,
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,7 @@ export function AppShell() {
     { to: '/admin/tickets', icon: ClipboardList, label: 'All Tickets' },
     { to: '/admin/customers', icon: Building2, label: 'Customers' },
     { to: '/admin/users', icon: Users, label: 'Users' },
+    { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ]
 
   const navItems = isAdmin ? adminNav : techNav

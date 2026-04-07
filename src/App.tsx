@@ -11,6 +11,9 @@ import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage'
 import { AdminCustomersPage } from '@/pages/admin/AdminCustomersPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
+import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage'
+import { AdminClassificationsPage } from '@/pages/admin/AdminClassificationsPage'
+import { AdminVehiclesPage } from '@/pages/admin/AdminVehiclesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +46,9 @@ export default function App() {
                   <Route path="/admin/tickets" element={<AdminTicketsPage />} />
                   <Route path="/admin/customers" element={<AdminCustomersPage />} />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                  <Route path="/admin/settings/classifications" element={<AdminClassificationsPage />} />
+                  <Route path="/admin/settings/vehicles" element={<AdminVehiclesPage />} />
                 </Route>
               </Route>
             </Route>
