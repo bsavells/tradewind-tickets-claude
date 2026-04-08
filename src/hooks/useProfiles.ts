@@ -47,10 +47,17 @@ export function useUpdateProfile() {
   })
 }
 
-export function useInviteUser() {
-  const { profile } = useAuth()
+async function callManageUser(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('manage-user', { body })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: {
+    mutationFn: (payload: {
       email: string
       first_name: string
       last_name: string
@@ -58,29 +65,21 @@ export function useInviteUser() {
       is_readonly_admin: boolean
       classification_id: string | null
       default_vehicle_id: string | null
-    }) => {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: payload.email,
-        email_confirm: true,
-        user_metadata: { first_name: payload.first_name, last_name: payload.last_name },
-      })
-      if (error) throw error
+    }) => callManageUser({ action: 'create', ...payload }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: profileError } = await (supabase.from('profiles') as any)
-        .update({
-          first_name: payload.first_name,
-          last_name: payload.last_name,
-          role: payload.role,
-          is_readonly_admin: payload.is_readonly_admin,
-          classification_id: payload.classification_id,
-          default_vehicle_id: payload.default_vehicle_id,
-          company_id: profile!.company_id,
-        })
-        .eq('id', data.user.id)
-      if (profileError) throw profileError
+export function useDeleteUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (user_id: string) => callManageUser({ action: 'delete', user_id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
 
-      return data.user
-    },
+export function useSendPasswordReset() {
+  return useMutation({
+    mutationFn: (email: string) => callManageUser({ action: 'send_reset', email }),
   })
 }

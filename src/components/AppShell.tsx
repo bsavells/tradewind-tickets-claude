@@ -52,6 +52,7 @@ export function AppShell() {
   const adminNav = [
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/tickets', icon: ClipboardList, label: 'All Tickets' },
+    { to: '/tickets', icon: FileText, label: 'My Tickets' },
     { to: '/admin/customers', icon: Building2, label: 'Customers' },
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/settings', icon: Settings, label: 'Settings' },

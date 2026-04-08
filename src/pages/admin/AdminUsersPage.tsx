@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Users } from 'lucide-react'
+import { Plus, Pencil, Users, Trash2, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,9 +12,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useProfiles, useUpdateProfile, useInviteUser } from '@/hooks/useProfiles'
+import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useSendPasswordReset } from '@/hooks/useProfiles'
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Database } from '@/lib/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -39,8 +40,10 @@ function EditUserDialog({
   user: Profile
 }) {
   const update = useUpdateProfile()
+  const sendReset = useSendPasswordReset()
   const { data: classifications = [] } = useClassifications()
   const { data: vehicles = [] } = useVehicles()
+  const [resetSent, setResetSent] = useState(false)
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
@@ -66,6 +69,11 @@ function EditUserDialog({
       is_readonly_admin: data.role === 'admin' ? data.is_readonly_admin : false,
     })
     onClose()
+  }
+
+  async function handleSendReset() {
+    await sendReset.mutateAsync(user.email)
+    setResetSent(true)
   }
 
   return (
@@ -157,6 +165,24 @@ function EditUserDialog({
             <Label htmlFor="active">Account active</Label>
           </div>
 
+          <div className="rounded-md border p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Password Reset</p>
+              <p className="text-xs text-muted-foreground">Send a reset email to this user.</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              onClick={handleSendReset}
+              disabled={sendReset.isPending || resetSent}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              {resetSent ? 'Sent!' : sendReset.isPending ? 'Sending…' : 'Send Reset'}
+            </Button>
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
             <Button type="submit" disabled={update.isPending}>
@@ -169,8 +195,50 @@ function EditUserDialog({
   )
 }
 
-// ---- Invite user dialog ----
-const inviteSchema = z.object({
+// ---- Delete confirm dialog ----
+function DeleteUserDialog({
+  open, onClose, user,
+}: {
+  open: boolean
+  onClose: () => void
+  user: Profile
+}) {
+  const deleteUser = useDeleteUser()
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    setError(null)
+    try {
+      await deleteUser.mutateAsync(user.id)
+      onClose()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to delete user')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Delete User</DialogTitle>
+          <DialogDescription>
+            This will permanently delete <strong>{user.first_name} {user.last_name}</strong> ({user.email}) and all their data. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="destructive" onClick={handleDelete} disabled={deleteUser.isPending}>
+            {deleteUser.isPending ? 'Deleting…' : 'Delete'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---- Create user dialog ----
+const createSchema = z.object({
   email: z.string().email('Invalid email'),
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
@@ -179,25 +247,25 @@ const inviteSchema = z.object({
   classification_id: z.string().nullable().optional(),
   default_vehicle_id: z.string().nullable().optional(),
 })
-type InviteForm = z.infer<typeof inviteSchema>
+type CreateForm = z.infer<typeof createSchema>
 
-function InviteUserDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const invite = useInviteUser()
+function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const createUser = useCreateUser()
   const { data: classifications = [] } = useClassifications()
   const { data: vehicles = [] } = useVehicles()
   const [serverError, setServerError] = useState<string | null>(null)
 
-  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<InviteForm>({
-    resolver: zodResolver(inviteSchema),
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateForm>({
+    resolver: zodResolver(createSchema) as never,
     defaultValues: { role: 'tech', is_readonly_admin: false },
   })
 
   const role = watch('role')
 
-  async function onSubmit(data: InviteForm) {
+  async function onSubmit(data: CreateForm) {
     setServerError(null)
     try {
-      await invite.mutateAsync({
+      await createUser.mutateAsync({
         ...data,
         classification_id: data.classification_id || null,
         default_vehicle_id: data.default_vehicle_id || null,
@@ -215,7 +283,7 @@ function InviteUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
         <DialogHeader>
           <DialogTitle>Add User</DialogTitle>
           <DialogDescription>
-            Creates an account. The user will receive a password reset email to set their password.
+            Creates an account and emails the user a password reset link so they can set their password.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -294,8 +362,8 @@ function InviteUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
           {serverError && <p className="text-sm text-destructive">{serverError}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={invite.isPending}>
-              {invite.isPending ? 'Creating…' : 'Create User'}
+            <Button type="submit" disabled={createUser.isPending}>
+              {createUser.isPending ? 'Creating…' : 'Create User'}
             </Button>
           </DialogFooter>
         </form>
@@ -306,9 +374,11 @@ function InviteUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
 // ---- Main page ----
 export function AdminUsersPage() {
+  const { profile: currentUser } = useAuth()
   const { data: users = [], isLoading } = useProfiles()
-  const [inviteOpen, setInviteOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
+  const [deleting, setDeleting] = useState<Profile | null>(null)
 
   function roleBadge(u: Profile) {
     if (u.role === 'admin') {
@@ -326,7 +396,7 @@ export function AdminUsersPage() {
           <h1 className="text-2xl font-bold">Users</h1>
           <p className="text-muted-foreground text-sm">Manage team members and permissions</p>
         </div>
-        <Button className="gap-2" onClick={() => setInviteOpen(true)}>
+        <Button className="gap-2" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" /> Add User
         </Button>
       </div>
@@ -352,7 +422,7 @@ export function AdminUsersPage() {
                   <TableHead className="hidden sm:table-cell">Classification</TableHead>
                   <TableHead className="hidden lg:table-cell">Vehicle</TableHead>
                   <TableHead>Active</TableHead>
-                  <TableHead className="w-20" />
+                  <TableHead className="w-28" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -377,9 +447,21 @@ export function AdminUsersPage() {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing(u)}>
-                        <Pencil className="h-3.5 w-3.5" /> Edit
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing(u)}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                        {u.id !== currentUser?.id && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleting(u)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -389,9 +471,12 @@ export function AdminUsersPage() {
         </CardContent>
       </Card>
 
-      <InviteUserDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <CreateUserDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       {editing && (
         <EditUserDialog open={!!editing} onClose={() => setEditing(null)} user={editing} />
+      )}
+      {deleting && (
+        <DeleteUserDialog open={!!deleting} onClose={() => setDeleting(null)} user={deleting} />
       )}
     </div>
   )
