@@ -391,7 +391,30 @@ export function TicketFormPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Requestor</Label>
-              <Input {...register('requestor')} placeholder="Contact name" />
+              {(() => {
+                const selectedCustomerId = watch('customer_id')
+                const selectedCustomer = customerOptions.find(c => c.id === selectedCustomerId)
+                const contacts = selectedCustomer?.customer_contacts ?? []
+                const listId = `contacts-${selectedCustomerId || 'none'}`
+                return (
+                  <>
+                    <Input
+                      {...register('requestor')}
+                      list={contacts.length ? listId : undefined}
+                      placeholder={contacts.length ? 'Type or pick contact…' : 'Contact name'}
+                    />
+                    {contacts.length > 0 && (
+                      <datalist id={listId}>
+                        {contacts.map(c => (
+                          <option key={c.id} value={c.name}>
+                            {c.title ? `${c.title}` : ''}
+                          </option>
+                        ))}
+                      </datalist>
+                    )}
+                  </>
+                )
+              })()}
             </div>
             <div className="space-y-1.5">
               <Label>Date *</Label>
@@ -533,11 +556,11 @@ export function TicketFormPage() {
                   <div className="grid grid-cols-3 gap-2 items-end">
                     <div className="space-y-1">
                       <Label className="text-xs">Start Time</Label>
-                      <Input type="time" {...register(`labor.${i}.start_time`)} className="h-9" />
+                      <Input type="time" step={900} {...register(`labor.${i}.start_time`)} className="h-9" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">End Time</Label>
-                      <Input type="time" {...register(`labor.${i}.end_time`)} className="h-9" />
+                      <Input type="time" step={900} {...register(`labor.${i}.end_time`)} className="h-9" />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Hours</Label>
