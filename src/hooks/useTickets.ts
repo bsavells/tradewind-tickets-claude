@@ -234,11 +234,15 @@ export function useSubmitTicket() {
 }
 
 // --- Delete a ticket ---
+// Uses a SECURITY DEFINER RPC to avoid a Postgres cascade + AFTER-trigger
+// conflict where our grand-total recompute triggers try to UPDATE the tickets
+// row while it is itself being CASCADE-deleted.
 export function useDeleteTicket() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (ticketId: string) => {
-      const { error } = await supabase.from('tickets').delete().eq('id', ticketId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)('delete_ticket_safe', { p_ticket_id: ticketId })
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
