@@ -107,9 +107,18 @@ export function MyTicketsPage() {
   }
 
   async function confirmDeleteTicket() {
-    if (!confirmDelete) return
-    await deleteTicket.mutateAsync(confirmDelete.id)
-    setConfirmDelete(null)
+    console.log('[MyTicketsPage] confirmDeleteTicket called, confirmDelete:', confirmDelete)
+    if (!confirmDelete) {
+      console.warn('[MyTicketsPage] confirmDelete is null — aborting')
+      return
+    }
+    try {
+      await deleteTicket.mutateAsync(confirmDelete.id)
+      console.log('[MyTicketsPage] mutateAsync resolved — closing dialog')
+      setConfirmDelete(null)
+    } catch (err) {
+      console.error('[MyTicketsPage] mutateAsync threw:', err)
+    }
   }
 
   // Sort: drafts/returned first, then submitted, then finalized

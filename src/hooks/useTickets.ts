@@ -241,11 +241,19 @@ export function useDeleteTicket() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (ticketId: string) => {
+      console.log('[useDeleteTicket] calling delete_ticket_safe with', ticketId)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.rpc as any)('delete_ticket_safe', { p_ticket_id: ticketId })
-      if (error) throw error
+      const result = await (supabase.rpc as any)('delete_ticket_safe', { p_ticket_id: ticketId })
+      console.log('[useDeleteTicket] RPC result:', JSON.stringify(result))
+      if (result.error) throw result.error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
+    onSuccess: () => {
+      console.log('[useDeleteTicket] onSuccess — invalidating queries')
+      qc.invalidateQueries({ queryKey: ['tickets'] })
+    },
+    onError: (err) => {
+      console.error('[useDeleteTicket] onError:', err)
+    },
   })
 }
 
