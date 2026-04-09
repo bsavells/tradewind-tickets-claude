@@ -249,14 +249,8 @@ export function TicketDetailPage() {
               variant="destructive"
               disabled={deleteTicket.isPending}
               onClick={async () => {
-                console.log('[TicketDetailPage] Delete confirmed for ticket', t.id)
-                try {
-                  await deleteTicket.mutateAsync(t.id)
-                  console.log('[TicketDetailPage] Delete succeeded, navigating')
-                  navigate('/tickets', { replace: true })
-                } catch (err) {
-                  console.error('[TicketDetailPage] Delete failed:', err)
-                }
+                await deleteTicket.mutateAsync(t.id)
+                navigate('/tickets', { replace: true })
               }}
             >
               {deleteTicket.isPending ? 'Deleting…' : 'Delete'}
