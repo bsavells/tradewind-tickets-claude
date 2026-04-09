@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock } from 'lucide-react'
+import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -16,6 +16,7 @@ import {
   useFinalizeTicket,
   useUnfinalizeTicket,
   useReturnTicket,
+  useDeleteTicket,
   type AdminLineEdits,
 } from '@/hooks/useTickets'
 import { useAuth } from '@/contexts/AuthContext'
@@ -104,6 +105,7 @@ export function AdminTicketReviewPage() {
   const finalize = useFinalizeTicket()
   const unfinalize = useUnfinalizeTicket()
   const returnTicket = useReturnTicket()
+  const deleteTicket = useDeleteTicket()
 
   const t = rawTicket as unknown as TicketData | undefined
 
@@ -118,6 +120,7 @@ export function AdminTicketReviewPage() {
   const [returnNote, setReturnNote] = useState('')
   const [finalizeOpen, setFinalizeOpen] = useState(false)
   const [unfinalizeOpen, setUnfinalizeOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   useEffect(() => {
     if (!t) return
@@ -164,6 +167,7 @@ export function AdminTicketReviewPage() {
   const canFinalize = isWritableAdmin && (t.status === 'submitted')
   const canReturn = isWritableAdmin && t.status === 'submitted'
   const canUnfinalize = isWritableAdmin && isFinalized
+  const canDelete = isWritableAdmin && !isFinalized
 
   function updateMaterial(id: string, price: string) {
     setMaterials(prev => prev.map(m => m.id === id ? { ...m, price_each: num(price) } : m))
@@ -467,6 +471,11 @@ export function AdminTicketReviewPage() {
 
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 md:relative border-t md:border md:rounded-lg bg-background p-4 flex flex-wrap gap-2 z-10 md:shadow-sm">
+        {canDelete && (
+          <Button variant="ghost" className="gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4" /> Delete
+          </Button>
+        )}
         {canEdit && (
           <Button
             className="gap-2"
@@ -536,6 +545,31 @@ export function AdminTicketReviewPage() {
             <Button variant="outline" onClick={() => setFinalizeOpen(false)}>Cancel</Button>
             <Button onClick={handleFinalize} disabled={finalize.isPending || updatePricing.isPending}>
               {finalize.isPending || updatePricing.isPending ? 'Finalizing…' : 'Finalize'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Permanently delete <strong>{t.ticket_number}</strong>? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteTicket.isPending}
+              onClick={async () => {
+                await deleteTicket.mutateAsync(t.id)
+                navigate('/admin/tickets')
+              }}
+            >
+              {deleteTicket.isPending ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -233,6 +233,18 @@ export function useSubmitTicket() {
   })
 }
 
+// --- Delete a ticket ---
+export function useDeleteTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ticketId: string) => {
+      const { error } = await supabase.from('tickets').delete().eq('id', ticketId)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
+  })
+}
+
 // --- Admin: update line item pricing/overrides ---
 export interface AdminLineEdits {
   materials?: { id: string; price_each: number | null }[]

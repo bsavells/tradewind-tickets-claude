@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Send, RotateCcw, Clock } from 'lucide-react'
+import { ArrowLeft, Pencil, Send, RotateCcw, Clock, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useTicket, useSubmitTicket, useRequestReturn } from '@/hooks/useTickets'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
+import { useTicket, useSubmitTicket, useRequestReturn, useDeleteTicket } from '@/hooks/useTickets'
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
@@ -17,8 +20,10 @@ export function TicketDetailPage() {
   const { data: ticket, isLoading } = useTicket(id)
   const submitTicket = useSubmitTicket()
   const requestReturn = useRequestReturn()
+  const deleteTicket = useDeleteTicket()
   const [submitting, setSubmitting] = useState(false)
   const [requesting, setRequesting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading) {
     return (
@@ -46,6 +51,7 @@ export function TicketDetailPage() {
   const canEdit = (t.status === 'draft' || t.status === 'returned') && (t.created_by === profile?.id || isAdmin)
   const canSubmit = (t.status === 'draft' || t.status === 'returned') && t.created_by === profile?.id
   const canRequestReturn = t.status === 'submitted' && t.created_by === profile?.id
+  const canDelete = t.status === 'draft' && t.created_by === profile?.id
 
   async function handleSubmit() {
     setSubmitting(true)
@@ -208,6 +214,12 @@ export function TicketDetailPage() {
 
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto border-t md:border-0 bg-background p-4 md:p-0 flex gap-3 z-10">
+        {canDelete && (
+          <Button variant="ghost" className="gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        )}
         {canSubmit && (
           <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
             <Send className="h-4 w-4" />
@@ -221,6 +233,31 @@ export function TicketDetailPage() {
           </Button>
         )}
       </div>
+
+      {/* Delete confirmation */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Permanently delete <strong>{t.ticket_number}</strong>? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={deleteTicket.isPending}
+              onClick={async () => {
+                await deleteTicket.mutateAsync(t.id)
+                navigate('/tickets', { replace: true })
+              }}
+            >
+              {deleteTicket.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

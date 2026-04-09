@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FileText, ChevronRight, Send } from 'lucide-react'
+import { Plus, FileText, ChevronRight, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
-import { useMyTickets, useSubmitTicket } from '@/hooks/useTickets'
+import { useMyTickets, useSubmitTicket, useDeleteTicket } from '@/hooks/useTickets'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
 import type { Database } from '@/lib/database.types'
@@ -17,13 +20,16 @@ function TicketRow({
   customerName,
   onSelect,
   onSubmit,
+  onDelete,
 }: {
   ticket: Ticket
   customerName: string
   onSelect: () => void
   onSubmit: (e: React.MouseEvent) => void
+  onDelete: (e: React.MouseEvent) => void
 }) {
   const canSubmit = ticket.status === 'draft' || ticket.status === 'returned'
+  const canDelete = ticket.status === 'draft'
 
   return (
     <div
@@ -48,7 +54,7 @@ function TicketRow({
           <p className="text-xs text-muted-foreground truncate">{ticket.job_location}</p>
         )}
       </div>
-      <div className="flex items-center gap-2 shrink-0">
+      <div className="flex items-center gap-1 shrink-0">
         {canSubmit && (
           <Button
             size="sm"
@@ -58,6 +64,16 @@ function TicketRow({
           >
             <Send className="h-3 w-3" />
             Submit
+          </Button>
+        )}
+        {canDelete && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         )}
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -71,7 +87,9 @@ export function MyTicketsPage() {
   const { profile } = useAuth()
   const { data: tickets = [], isLoading } = useMyTickets()
   const submitTicket = useSubmitTicket()
+  const deleteTicket = useDeleteTicket()
   const [, setSubmitting] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Ticket | null>(null)
 
   async function handleSubmit(e: React.MouseEvent, ticketId: string) {
     e.stopPropagation()
@@ -81,6 +99,17 @@ export function MyTicketsPage() {
     } finally {
       setSubmitting(null)
     }
+  }
+
+  function handleDeleteClick(e: React.MouseEvent, ticket: Ticket) {
+    e.stopPropagation()
+    setConfirmDelete(ticket)
+  }
+
+  async function confirmDeleteTicket() {
+    if (!confirmDelete) return
+    await deleteTicket.mutateAsync(confirmDelete.id)
+    setConfirmDelete(null)
   }
 
   // Sort: drafts/returned first, then submitted, then finalized
@@ -124,18 +153,36 @@ export function MyTicketsPage() {
                 customerName={(t as unknown as { customers: { name: string } }).customers?.name ?? '—'}
                 onSelect={() => navigate(`/tickets/${t.id}`)}
                 onSubmit={e => handleSubmit(e, t.id)}
+                onDelete={e => handleDeleteClick(e, t)}
               />
             ))}
           </div>
         )}
       </Card>
 
-      {/* Mobile bulk actions hint */}
       {sorted.some(t => t.status === 'draft' || t.status === 'returned') && (
         <p className="text-xs text-center text-muted-foreground">
           Tap a ticket to open it and submit, or use the Submit button on larger screens.
         </p>
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!confirmDelete} onOpenChange={v => { if (!v) setConfirmDelete(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Permanently delete <strong>{confirmDelete?.ticket_number}</strong>? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDeleteTicket} disabled={deleteTicket.isPending}>
+              {deleteTicket.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
