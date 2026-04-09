@@ -110,6 +110,39 @@ function Section({
   )
 }
 
+// ---- 15-minute time select ----
+const TIME_OPTIONS: { value: string; label: string }[] = []
+for (let h = 0; h < 24; h++) {
+  for (const m of [0, 15, 30, 45]) {
+    const hh = String(h).padStart(2, '0')
+    const mm = String(m).padStart(2, '0')
+    const period = h >= 12 ? 'PM' : 'AM'
+    const hour12 = h % 12 || 12
+    TIME_OPTIONS.push({ value: `${hh}:${mm}`, label: `${hour12}:${mm} ${period}` })
+  }
+}
+
+function TimeSelect({
+  value, onChange, disabled,
+}: {
+  value: string
+  onChange: (v: string) => void
+  disabled?: boolean
+}) {
+  return (
+    <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger className="h-9">
+        <SelectValue placeholder="--:-- --" />
+      </SelectTrigger>
+      <SelectContent className="max-h-60">
+        {TIME_OPTIONS.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  )
+}
+
 // ---- Row delete button ----
 function DeleteRowBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   return (
@@ -138,6 +171,7 @@ export function TicketFormPage() {
   const updateTicket = useUpdateTicket()
   const [saving, setSaving] = useState(false)
   const [draftRestored, setDraftRestored] = useState(false)
+  const [contactPickerKey, setContactPickerKey] = useState(0)
   const draftId = id ?? 'new'
 
   // Default labor row from current user's profile
@@ -161,7 +195,7 @@ export function TicketFormPage() {
       resolver: zodResolver(ticketSchema) as any,
       defaultValues: {
         customer_id: '',
-        requestor: profile ? `${profile.first_name} ${profile.last_name}`.trim() : '',
+        requestor: '',
         job_number: '',
         job_location: '',
         job_problem: '',
@@ -394,25 +428,35 @@ export function TicketFormPage() {
               {(() => {
                 const selectedCustomerId = watch('customer_id')
                 const selectedCustomer = customerOptions.find(c => c.id === selectedCustomerId)
-                const contacts = selectedCustomer?.customer_contacts ?? []
-                const listId = `contacts-${selectedCustomerId || 'none'}`
+                const contacts = (selectedCustomer as unknown as { customer_contacts: { id: string; name: string; title: string | null }[] } | undefined)?.customer_contacts ?? []
                 return (
-                  <>
+                  <div className="flex gap-1.5">
                     <Input
                       {...register('requestor')}
-                      list={contacts.length ? listId : undefined}
-                      placeholder={contacts.length ? 'Type or pick contact…' : 'Contact name'}
+                      placeholder="Contact name"
+                      className="flex-1"
                     />
                     {contacts.length > 0 && (
-                      <datalist id={listId}>
-                        {contacts.map(c => (
-                          <option key={c.id} value={c.name}>
-                            {c.title ? `${c.title}` : ''}
-                          </option>
-                        ))}
-                      </datalist>
+                      <Select
+                        key={contactPickerKey}
+                        onValueChange={name => {
+                          setValue('requestor', name, { shouldDirty: true })
+                          setContactPickerKey(k => k + 1)
+                        }}
+                      >
+                        <SelectTrigger className="w-auto shrink-0 gap-1 px-2.5 text-xs">
+                          <SelectValue placeholder="Contacts" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {contacts.map(c => (
+                            <SelectItem key={c.id} value={c.name}>
+                              {c.name}{c.title ? ` — ${c.title}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     )}
-                  </>
+                  </div>
                 )
               })()}
             </div>
@@ -556,11 +600,17 @@ export function TicketFormPage() {
                   <div className="grid grid-cols-3 gap-2 items-end">
                     <div className="space-y-1">
                       <Label className="text-xs">Start Time</Label>
-                      <Input type="time" step={900} {...register(`labor.${i}.start_time`)} className="h-9" />
+                      <TimeSelect
+                        value={watch(`labor.${i}.start_time`) ?? ''}
+                        onChange={v => setValue(`labor.${i}.start_time`, v)}
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">End Time</Label>
-                      <Input type="time" step={900} {...register(`labor.${i}.end_time`)} className="h-9" />
+                      <TimeSelect
+                        value={watch(`labor.${i}.end_time`) ?? ''}
+                        onChange={v => setValue(`labor.${i}.end_time`, v)}
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Hours</Label>
