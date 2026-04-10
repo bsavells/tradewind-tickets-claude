@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__get_logs",
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__deploy_edge_function",
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__apply_migration",
+      "Bash(npm run:*)",
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__execute_sql"
     ]
   }
 }
