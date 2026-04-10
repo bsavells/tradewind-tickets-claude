@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -88,6 +88,7 @@ interface TicketData {
   ticket_labor: LaborRow[]
   ticket_vehicles: VehicleRow[]
   ticket_equipment: EquipmentRow[]
+  ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; created_at: string }[]
 }
 
 function num(v: string): number | null {
@@ -163,6 +164,8 @@ export function AdminTicketReviewPage() {
   if (!t) return <div className="p-6 text-muted-foreground">Ticket not found.</div>
 
   const isFinalized = t.status === 'finalized'
+  const auditLog = t.ticket_audit_log ?? []
+  const returnRequested = t.status === 'submitted' && auditLog.some(e => e.action === 'return_requested')
   const canEdit = isWritableAdmin && !isFinalized
   const canFinalize = isWritableAdmin && (t.status === 'submitted')
   const canReturn = isWritableAdmin && t.status === 'submitted'
@@ -248,6 +251,11 @@ export function AdminTicketReviewPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold">{t.ticket_number}</h1>
             <Badge variant={statusVariant(t.status)}>{statusLabel(t.status)}</Badge>
+            {returnRequested && (
+              <Badge variant="warning" className="gap-1">
+                <TriangleAlert className="h-3 w-3" /> Return Requested
+              </Badge>
+            )}
             {t.has_post_finalize_changes && <Badge variant="warning">Changes since finalize</Badge>}
             {isFinalized && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
           </div>
@@ -468,6 +476,47 @@ export function AdminTicketReviewPage() {
           <p className="text-3xl font-bold tabular-nums">${liveGrandTotal.toFixed(2)}</p>
         </div>
       </div>
+
+      {/* Audit Log */}
+      {auditLog.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Activity Log</CardTitle></CardHeader>
+          <CardContent>
+            <ol className="relative border-l border-border ml-2 space-y-4">
+              {[...auditLog]
+                .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                .map(entry => {
+                  const label: Record<string, string> = {
+                    submitted: 'Submitted for Review',
+                    returned: 'Returned to Tech',
+                    return_requested: 'Return Requested by Tech',
+                    finalized: 'Finalized',
+                    unfinalized: 'Unfinalized',
+                    edited_by_admin: 'Pricing Updated',
+                    exported: 'Exported',
+                  }
+                  const isRequest = entry.action === 'return_requested'
+                  return (
+                    <li key={entry.id} className="ml-4">
+                      <div className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-background ${isRequest ? 'bg-yellow-500' : 'bg-primary'}`} />
+                      <div className="flex flex-col gap-0.5">
+                        <p className={`text-sm font-medium ${isRequest ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
+                          {label[entry.action] ?? entry.action}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {entry.actor_name} · {format(new Date(entry.created_at), 'MMM d, yyyy h:mm a')}
+                        </p>
+                        {entry.note && (
+                          <p className="text-sm text-muted-foreground mt-0.5 italic">"{entry.note}"</p>
+                        )}
+                      </div>
+                    </li>
+                  )
+                })}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 md:relative border-t md:border md:rounded-lg bg-background p-4 flex flex-wrap gap-2 z-10 md:shadow-sm">

@@ -95,6 +95,8 @@ export function AdminTicketsPage() {
               const customerName = (t as unknown as { customers: { name: string } }).customers?.name ?? '—'
               const tech = (t as unknown as { profiles: { first_name: string; last_name: string } | null }).profiles
               const techName = tech ? `${tech.first_name} ${tech.last_name}` : '—'
+              const auditLog = (t as unknown as { ticket_audit_log: { action: string }[] }).ticket_audit_log ?? []
+              const returnRequested = t.status === 'submitted' && auditLog.some(e => e.action === 'return_requested')
               return (
                 <div
                   key={t.id}
@@ -108,6 +110,9 @@ export function AdminTicketsPage() {
                       <Badge variant={statusVariant(t.status)} className="text-xs h-4 px-1.5">
                         {statusLabel(t.status)}
                       </Badge>
+                      {returnRequested && (
+                        <Badge variant="warning" className="text-xs h-4 px-1.5">Return Requested</Badge>
+                      )}
                       {t.has_post_finalize_changes && (
                         <Badge variant="warning" className="text-xs h-4 px-1.5">Updated</Badge>
                       )}

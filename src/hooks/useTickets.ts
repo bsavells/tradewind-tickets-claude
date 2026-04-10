@@ -86,7 +86,7 @@ export function useAllTickets(statusFilter?: TicketStatus) {
     queryFn: async () => {
       let q = supabase
         .from('tickets')
-        .select('*, customers(name), profiles!tickets_created_by_fkey(first_name, last_name)')
+        .select('*, customers(name), profiles!tickets_created_by_fkey(first_name, last_name), ticket_audit_log(action)')
         .eq('company_id', profile!.company_id)
         .order('created_at', { ascending: false })
       if (statusFilter) q = q.eq('status', statusFilter)
