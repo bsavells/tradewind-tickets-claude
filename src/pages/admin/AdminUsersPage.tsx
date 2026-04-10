@@ -375,7 +375,8 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
 // ---- Main page ----
 export function AdminUsersPage() {
   const { profile: currentUser } = useAuth()
-  const { data: users = [], isLoading } = useProfiles()
+  const { data: users = [], isLoading, isError, error } = useProfiles()
+  if (isError) console.error('[AdminUsersPage] useProfiles error:', error)
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
   const [deleting, setDeleting] = useState<Profile | null>(null)
@@ -406,6 +407,11 @@ export function AdminUsersPage() {
           {isLoading ? (
             <div className="flex justify-center py-12">
               <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center py-14 text-destructive gap-2">
+              <Users className="h-8 w-8 opacity-30" />
+              <p className="text-sm">Failed to load users: {error instanceof Error ? error.message : 'Unknown error'}</p>
             </div>
           ) : users.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-muted-foreground gap-2">
