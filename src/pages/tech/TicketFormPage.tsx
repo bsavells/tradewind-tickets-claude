@@ -376,13 +376,16 @@ export function TicketFormPage() {
   }
 
   function addVehicleRow() {
+    const defaultVehicle = profile?.default_vehicle_id
+      ? vehicleOptions.find(v => v.id === profile.default_vehicle_id) ?? null
+      : null
     vehicleFields.append({
       sort_order: vehicleFields.fields.length,
-      vehicle_id: null,
-      vehicle_label: '',
+      vehicle_id: defaultVehicle?.id ?? null,
+      vehicle_label: defaultVehicle?.label ?? '',
       mileage_start: null,
       mileage_end: null,
-      rate: null,
+      rate: defaultVehicle ? Number(defaultVehicle.default_mileage_rate) : null,
     })
   }
 
