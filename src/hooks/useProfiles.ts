@@ -49,8 +49,10 @@ export function useUpdateProfile() {
 
 async function callManageUser(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('manage-user', { body })
-  if (error) throw error
+  // Prefer the detailed error from the Edge Function response body over the
+  // generic "Edge Function returned a non-2xx status code" from the client.
   if (data?.error) throw new Error(data.error)
+  if (error) throw error
   return data
 }
 
