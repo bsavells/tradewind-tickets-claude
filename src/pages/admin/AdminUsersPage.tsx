@@ -24,7 +24,7 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 const editSchema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
-  role: z.enum(['tech', 'admin']),
+  role: z.enum(['user', 'admin']),
   is_readonly_admin: z.boolean(),
   classification_id: z.string().nullable().optional(),
   default_vehicle_id: z.string().nullable().optional(),
@@ -99,10 +99,10 @@ function EditUserDialog({
 
           <div className="space-y-1.5">
             <Label>Role</Label>
-            <Select value={watch('role')} onValueChange={v => setValue('role', v as 'tech' | 'admin')}>
+            <Select value={watch('role')} onValueChange={v => setValue('role', v as 'user' | 'admin')}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="tech">Tech</SelectItem>
+                <SelectItem value="user">User</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
@@ -242,7 +242,7 @@ const createSchema = z.object({
   email: z.string().email('Invalid email'),
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
-  role: z.enum(['tech', 'admin']),
+  role: z.enum(['user', 'admin']),
   is_readonly_admin: z.boolean(),
   classification_id: z.string().nullable().optional(),
   default_vehicle_id: z.string().nullable().optional(),
@@ -257,7 +257,7 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema) as never,
-    defaultValues: { role: 'tech', is_readonly_admin: false },
+    defaultValues: { role: 'user', is_readonly_admin: false },
   })
 
   const role = watch('role')
@@ -306,10 +306,10 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
           </div>
           <div className="space-y-1.5">
             <Label>Role</Label>
-            <Select value={watch('role')} onValueChange={v => setValue('role', v as 'tech' | 'admin')}>
+            <Select value={watch('role')} onValueChange={v => setValue('role', v as 'user' | 'admin')}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="tech">Tech</SelectItem>
+                <SelectItem value="user">User</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
@@ -389,7 +389,7 @@ export function AdminUsersPage() {
         ? <Badge variant="outline">Admin (read-only)</Badge>
         : <Badge variant="default">Admin</Badge>
     }
-    return <Badge variant="secondary">Tech</Badge>
+    return <Badge variant="secondary">User</Badge>
   }
 
   return (

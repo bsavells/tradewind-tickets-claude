@@ -31,7 +31,7 @@ export function useUpdateProfile() {
       id: string
       first_name?: string
       last_name?: string
-      role?: 'tech' | 'admin'
+      role?: 'user' | 'admin'
       is_readonly_admin?: boolean
       classification_id?: string | null
       default_vehicle_id?: string | null
@@ -62,7 +62,7 @@ export function useCreateUser() {
       email: string
       first_name: string
       last_name: string
-      role: 'tech' | 'admin'
+      role: 'user' | 'admin'
       is_readonly_admin: boolean
       classification_id: string | null
       default_vehicle_id: string | null

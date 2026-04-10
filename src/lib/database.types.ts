@@ -877,7 +877,7 @@ export type Database = {
       export_format: "pdf" | "xlsx"
       signature_kind: "customer" | "supervisor"
       ticket_status: "draft" | "submitted" | "returned" | "finalized"
-      user_role: "tech" | "admin"
+      user_role: "user" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1019,7 +1019,7 @@ export const Constants = {
       export_format: ["pdf", "xlsx"],
       signature_kind: ["customer", "supervisor"],
       ticket_status: ["draft", "submitted", "returned", "finalized"],
-      user_role: ["tech", "admin"],
+      user_role: ["user", "admin"],
     },
   },
 } as const

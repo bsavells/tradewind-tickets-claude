@@ -497,8 +497,8 @@ export function AdminTicketReviewPage() {
                 .map((entry, i) => {
                   const label: Record<string, string> = {
                     submitted: 'Submitted for Review',
-                    returned: 'Returned to Tech',
-                    return_requested: 'Return Requested by Tech',
+                    returned: 'Returned to User',
+                    return_requested: 'Return Requested by User',
                     finalized: 'Finalized',
                     unfinalized: 'Unfinalized',
                     edited_by_admin: 'Pricing Updated',
@@ -551,7 +551,7 @@ export function AdminTicketReviewPage() {
         )}
         {canReturn && (
           <Button variant="outline" className="gap-2" onClick={() => setReturnOpen(true)}>
-            <RotateCcw className="h-4 w-4" /> Return to Tech
+            <RotateCcw className="h-4 w-4" /> Return to User
           </Button>
         )}
         {canFinalize && (
@@ -570,9 +570,9 @@ export function AdminTicketReviewPage() {
       <Dialog open={returnOpen} onOpenChange={setReturnOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Return to Tech</DialogTitle>
+            <DialogTitle>Return to User</DialogTitle>
             <DialogDescription>
-              The tech will be able to edit and resubmit this ticket. Add a note explaining what needs to change.
+              The user will be able to edit and resubmit this ticket. Add a note explaining what needs to change.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">

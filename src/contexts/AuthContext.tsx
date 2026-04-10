@@ -12,7 +12,7 @@ interface AuthContextValue {
   loading: boolean
   isAdmin: boolean
   isWritableAdmin: boolean
-  isTech: boolean
+  isUser: boolean
   signOut: () => Promise<void>
 }
 
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAdmin = profile?.role === 'admin' && (profile?.active ?? false)
   const isWritableAdmin = isAdmin && !(profile?.is_readonly_admin ?? true)
-  const isTech = profile?.role === 'tech' && (profile?.active ?? false)
+  const isUser = profile?.role === 'user' && (profile?.active ?? false)
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAdmin,
       isWritableAdmin,
-      isTech,
+      isUser,
       signOut,
     }}>
       {children}

@@ -49,7 +49,7 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route path="/" element={<RootRedirect />} />
 
-                {/* Tech routes */}
+                {/* User routes */}
                 <Route path="/tickets" element={<MyTicketsPage />} />
                 <Route path="/tickets/new" element={<TicketFormPage />} />
                 <Route path="/tickets/:id" element={<TicketDetailPage />} />
