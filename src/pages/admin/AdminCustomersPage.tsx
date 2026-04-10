@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -51,6 +51,10 @@ function CustomerDialog({
     resolver: zodResolver(customerSchema),
     defaultValues: { name: existing?.name ?? '', address: existing?.address ?? '' },
   })
+
+  useEffect(() => {
+    reset({ name: existing?.name ?? '', address: existing?.address ?? '' })
+  }, [existing, reset])
 
   async function onSubmit(data: CustomerForm) {
     await upsert.mutateAsync({ ...data, id: existing?.id })
@@ -107,6 +111,17 @@ function ContactDialog({
       is_primary: existing?.is_primary ?? false,
     },
   })
+
+  // Re-populate whenever the contact being edited changes
+  useEffect(() => {
+    reset({
+      name: existing?.name ?? '',
+      title: existing?.title ?? '',
+      phone: existing?.phone ?? '',
+      email: existing?.email ?? '',
+      is_primary: existing?.is_primary ?? false,
+    })
+  }, [existing, reset])
 
   async function onSubmit(data: ContactForm) {
     await upsert.mutateAsync({
