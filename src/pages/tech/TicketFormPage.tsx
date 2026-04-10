@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, Save, ArrowLeft, Camera } from 'lucide-react'
+import { Plus, Trash2, Save, ArrowLeft, Camera, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -315,6 +315,26 @@ export function TicketFormPage() {
     // vehicle totals just displayed — no extra field needed (total_miles is computed in DB)
   }, [watchedVehicles])
 
+  async function discardDraft() {
+    await clearDraft('new')
+    setDraftRestored(false)
+    reset({
+      customer_id: '',
+      requestor: '',
+      job_number: '',
+      job_location: '',
+      job_problem: '',
+      ticket_type: '',
+      work_date: todayISO(),
+      work_description: '',
+      equipment_enabled: false,
+      materials: [],
+      labor: [defaultLaborRow()],
+      vehicles: [],
+      equipment: [],
+    })
+  }
+
   async function onSubmit(values: FormValues) {
     setSaving(true)
     setSaveError(null)
@@ -407,7 +427,17 @@ export function TicketFormPage() {
         <div className="flex-1">
           <h1 className="text-xl font-bold">{pageTitle}</h1>
           {draftRestored && !isEdit && (
-            <Badge variant="outline" className="text-xs mt-0.5">Draft restored</Badge>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant="outline" className="text-xs">Draft restored</Badge>
+              <button
+                type="button"
+                onClick={discardDraft}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Start over
+              </button>
+            </div>
           )}
         </div>
         <Button onClick={handleSubmit(onSubmit)} disabled={saving} className="gap-2">
