@@ -22,7 +22,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
-import { format, parseISO, isValid } from 'date-fns'
+import { format } from 'date-fns'
 
 interface MaterialRow {
   id: string
@@ -500,8 +500,8 @@ export function AdminTicketReviewPage() {
                     exported: 'Exported',
                   }
                   const isRequest = entry.action === 'return_requested'
-                  const parsedDate = entry.occurred_at ? parseISO(entry.occurred_at) : null
-                  const dateStr = parsedDate && isValid(parsedDate)
+                  const parsedDate = entry.occurred_at ? new Date(entry.occurred_at) : null
+                  const dateStr = parsedDate && !isNaN(parsedDate.getTime())
                     ? format(parsedDate, 'MMM d, yyyy h:mm a')
                     : '—'
                   return (

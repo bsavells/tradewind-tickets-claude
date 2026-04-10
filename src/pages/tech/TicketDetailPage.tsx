@@ -11,7 +11,7 @@ import { useTicket, useSubmitTicket, useRequestReturn, useDeleteTicket } from '@
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -61,8 +61,11 @@ export function TicketDetailPage() {
     ? (t.ticket_audit_log ?? [])
         .filter(e => e.action === 'returned')
         .reduce<typeof t.ticket_audit_log[number] | null>(
-          (latest, entry) =>
-            !latest || (entry.occurred_at ?? '') > (latest.occurred_at ?? '') ? entry : latest,
+          (latest, entry) => {
+            const entryTime = entry.occurred_at ? new Date(entry.occurred_at).getTime() : 0
+            const latestTime = latest?.occurred_at ? new Date(latest.occurred_at).getTime() : 0
+            return entryTime > latestTime ? entry : latest
+          },
           null
         )
     : null
