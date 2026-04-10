@@ -204,7 +204,7 @@ export function TicketFormPage() {
         work_date: todayISO(),
         work_description: '',
         equipment_enabled: false,
-        materials: [{ sort_order: 0, qty: 1, part_number: '', description: '' }],
+        materials: [],
         labor: [],
         vehicles: [],
         equipment: [],
@@ -244,9 +244,7 @@ export function TicketFormPage() {
       work_date: t.work_date,
       work_description: t.work_description ?? '',
       equipment_enabled: t.equipment_enabled,
-      materials: t.ticket_materials.length
-        ? t.ticket_materials.map(m => ({ ...m, part_number: m.part_number ?? '', description: m.description ?? '' }))
-        : [{ sort_order: 0, qty: 1, part_number: '', description: '' }],
+      materials: t.ticket_materials.map(m => ({ ...m, part_number: m.part_number ?? '', description: m.description ?? '' })),
       labor: t.ticket_labor.map(l => ({
         ...l,
         classification_snapshot: l.classification_snapshot ?? '',
@@ -281,7 +279,7 @@ export function TicketFormPage() {
           work_date: draft.work_date,
           work_description: draft.work_description,
           equipment_enabled: draft.equipment_enabled,
-          materials: draft.materials.length ? draft.materials : [{ sort_order: 0, qty: 1, part_number: '', description: '' }],
+          materials: draft.materials,
           labor: draft.labor,
           vehicles: draft.vehicles,
           equipment: draft.equipment,
@@ -533,14 +531,19 @@ export function TicketFormPage() {
           }
         >
           <div className="space-y-2">
+            {materials.fields.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-2">No materials — tap "Add Row" if parts apply.</p>
+            )}
             {/* Column headers — hidden on smallest screens */}
-            <div className="hidden sm:grid grid-cols-[3rem_6rem_1fr_1.5rem] gap-2 text-xs text-muted-foreground px-1">
-              <span>Qty</span><span>Part #</span><span>Description</span><span />
-            </div>
+            {materials.fields.length > 0 && (
+              <div className="hidden sm:grid grid-cols-[3rem_6rem_1fr_1.5rem] gap-2 text-xs text-muted-foreground px-1">
+                <span>Qty</span><span>Part #</span><span>Description</span><span />
+              </div>
+            )}
             {materials.fields.map((field, i) => (
               <div key={field.id} className="grid grid-cols-[3rem_6rem_1fr_1.5rem] gap-2 items-start">
                 <Input
-                  type="number" step="0.01" min="0.01"
+                  type="number" step="1" min="1"
                   {...register(`materials.${i}.qty`)}
                   className="h-9 text-sm"
                   placeholder="1"

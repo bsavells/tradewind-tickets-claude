@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FileText, ChevronRight, Send, Trash2 } from 'lucide-react'
+import { Plus, FileText, ChevronRight, Send, Trash2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -85,7 +85,7 @@ function TicketRow({
 export function MyTicketsPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { data: tickets = [], isLoading } = useMyTickets()
+  const { data: tickets = [], isLoading, refetch, isFetching } = useMyTickets()
   const submitTicket = useSubmitTicket()
   const deleteTicket = useDeleteTicket()
   const [, setSubmitting] = useState<string | null>(null)
@@ -127,10 +127,15 @@ export function MyTicketsPage() {
             Welcome back, {profile?.first_name}
           </p>
         </div>
-        <Button className="gap-2" onClick={() => navigate('/tickets/new')}>
-          <Plus className="h-4 w-4" />
-          New Ticket
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching} title="Refresh">
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button className="gap-2" onClick={() => navigate('/tickets/new')}>
+            <Plus className="h-4 w-4" />
+            New Ticket
+          </Button>
+        </div>
       </div>
 
       <Card className="overflow-hidden">
