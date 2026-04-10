@@ -454,15 +454,19 @@ export function useRequestReturn() {
   return useMutation({
     mutationFn: async ({ ticketId, note }: { ticketId: string; note?: string }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('ticket_audit_log') as any).insert({
+      const { error } = await (supabase.from('ticket_audit_log') as any).insert({
         ticket_id: ticketId,
         actor_id: profile!.id,
         actor_name: `${profile!.first_name} ${profile!.last_name}`,
         action: 'return_requested',
         note: note ?? null,
       })
+      if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
+    onSuccess: (_data, { ticketId }) => {
+      qc.invalidateQueries({ queryKey: ['tickets'] })
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+    },
   })
 }
 

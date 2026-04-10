@@ -22,7 +22,9 @@ export function TicketDetailPage() {
   const requestReturn = useRequestReturn()
   const deleteTicket = useDeleteTicket()
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [requesting, setRequesting] = useState(false)
+  const [requestError, setRequestError] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (isLoading) {
@@ -63,9 +65,12 @@ export function TicketDetailPage() {
 
   async function handleSubmit() {
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await submitTicket.mutateAsync(t.id)
       navigate('/tickets')
+    } catch (err: unknown) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -73,8 +78,12 @@ export function TicketDetailPage() {
 
   async function handleRequestReturn() {
     setRequesting(true)
+    setRequestError(null)
     try {
       await requestReturn.mutateAsync({ ticketId: t.id })
+      navigate('/tickets')
+    } catch (err: unknown) {
+      setRequestError(err instanceof Error ? err.message : 'Failed to send request. Please try again.')
     } finally {
       setRequesting(false)
     }
@@ -239,25 +248,33 @@ export function TicketDetailPage() {
       )}
 
       {/* Action bar */}
-      <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto border-t md:border-0 bg-background p-4 md:p-0 flex gap-3 z-10">
-        {canDelete && (
-          <Button variant="ghost" className="gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </Button>
+      <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto border-t md:border-0 bg-background p-4 md:p-0 flex flex-col gap-2 z-10">
+        {submitError && (
+          <p className="text-sm text-destructive text-center">{submitError}</p>
         )}
-        {canSubmit && (
-          <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
-            <Send className="h-4 w-4" />
-            {submitting ? 'Submitting…' : 'Submit for Review'}
-          </Button>
+        {requestError && (
+          <p className="text-sm text-destructive text-center">{requestError}</p>
         )}
-        {canRequestReturn && (
-          <Button variant="outline" className="flex-1 gap-2" onClick={handleRequestReturn} disabled={requesting}>
-            <RotateCcw className="h-4 w-4" />
-            {requesting ? 'Requesting…' : 'Request Return'}
-          </Button>
-        )}
+        <div className="flex gap-3">
+          {canDelete && (
+            <Button variant="ghost" className="gap-2 text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          )}
+          {canSubmit && (
+            <Button className="flex-1 gap-2" onClick={handleSubmit} disabled={submitting}>
+              <Send className="h-4 w-4" />
+              {submitting ? 'Submitting…' : 'Submit for Review'}
+            </Button>
+          )}
+          {canRequestReturn && (
+            <Button variant="outline" className="flex-1 gap-2" onClick={handleRequestReturn} disabled={requesting}>
+              <RotateCcw className="h-4 w-4" />
+              {requesting ? 'Requesting…' : 'Request Return'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Delete confirmation */}
