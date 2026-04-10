@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -39,6 +39,14 @@ function ClassificationDialog({
       default_ot_rate: existing?.default_ot_rate ?? 0,
     },
   })
+
+  useEffect(() => {
+    reset({
+      name: existing?.name ?? '',
+      default_reg_rate: existing?.default_reg_rate ?? 0,
+      default_ot_rate: existing?.default_ot_rate ?? 0,
+    })
+  }, [existing, reset])
 
   async function onSubmit(data: Form) {
     await upsert.mutateAsync({ ...data, id: existing?.id })
