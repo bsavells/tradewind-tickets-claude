@@ -57,7 +57,11 @@ export function TicketDetailPage() {
   // Find the most recent 'returned' audit entry so we can show the admin's note
   const returnEntry = t.status === 'returned'
     ? [...(t.ticket_audit_log ?? [])].filter(e => e.action === 'returned').sort(
-        (a, b) => parseISO(b.created_at).getTime() - parseISO(a.created_at).getTime()
+        (a, b) => {
+          const ta = a.created_at ? parseISO(a.created_at).getTime() : 0
+          const tb = b.created_at ? parseISO(b.created_at).getTime() : 0
+          return tb - ta
+        }
       )[0]
     : null
 
