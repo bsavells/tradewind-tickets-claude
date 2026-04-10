@@ -163,10 +163,10 @@ export function TicketFormPage() {
   const isEdit = !!id
   const navigate = useNavigate()
   const { profile } = useAuth()
-  const { data: customers = [] } = useCustomers()
-  const { data: classifications = [] } = useClassifications()
+  const { data: customers = [], isLoading: customersLoading } = useCustomers()
+  const { data: classifications = [], isLoading: classificationsLoading } = useClassifications()
   const { data: vehicles = [] } = useVehicles()
-  const { data: existingTicket } = useTicket(id)
+  const { data: existingTicket, isLoading: ticketLoading } = useTicket(id)
   const createTicket = useCreateTicket()
   const updateTicket = useUpdateTicket()
   const [saving, setSaving] = useState(false)
@@ -250,8 +250,9 @@ export function TicketFormPage() {
       labor: t.ticket_labor.map(l => ({
         ...l,
         classification_snapshot: l.classification_snapshot ?? '',
-        start_time: l.start_time ?? '',
-        end_time: l.end_time ?? '',
+        // Supabase returns time as "HH:MM:SS" — slice to "HH:MM" to match Select options
+        start_time: l.start_time?.slice(0, 5) ?? '',
+        end_time: l.end_time?.slice(0, 5) ?? '',
       })),
       vehicles: t.ticket_vehicles.map(v => ({
         ...v,
@@ -385,6 +386,18 @@ export function TicketFormPage() {
   }
 
   const pageTitle = isEdit ? `Edit Ticket${existingTicket ? ` · ${(existingTicket as unknown as { ticket_number: string }).ticket_number}` : ''}` : 'New Ticket'
+
+  // In edit mode, hold off rendering the form until the ticket + reference
+  // data are all loaded. This ensures Radix Select components receive their
+  // correct initial value on first paint rather than needing a value-change
+  // after mount (which Radix doesn't always reflect in the trigger label).
+  if (isEdit && (ticketLoading || customersLoading || classificationsLoading || !existingTicket)) {
+    return (
+      <div className="flex justify-center items-center h-60">
+        <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-5 pb-20">
