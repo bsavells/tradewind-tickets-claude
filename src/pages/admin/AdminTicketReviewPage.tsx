@@ -88,7 +88,7 @@ interface TicketData {
   ticket_labor: LaborRow[]
   ticket_vehicles: VehicleRow[]
   ticket_equipment: EquipmentRow[]
-  ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; created_at: string }[]
+  ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; occurred_at: string }[]
 }
 
 function num(v: string): number | null {
@@ -485,8 +485,8 @@ export function AdminTicketReviewPage() {
             <ol className="relative border-l border-border ml-2 space-y-4">
               {[...auditLog]
                 .sort((a, b) => {
-                  const da = a.created_at ? new Date(a.created_at).getTime() : 0
-                  const db = b.created_at ? new Date(b.created_at).getTime() : 0
+                  const da = a.occurred_at ? new Date(a.occurred_at).getTime() : 0
+                  const db = b.occurred_at ? new Date(b.occurred_at).getTime() : 0
                   return da - db
                 })
                 .map((entry, i) => {
@@ -500,7 +500,7 @@ export function AdminTicketReviewPage() {
                     exported: 'Exported',
                   }
                   const isRequest = entry.action === 'return_requested'
-                  const parsedDate = entry.created_at ? parseISO(entry.created_at) : null
+                  const parsedDate = entry.occurred_at ? parseISO(entry.occurred_at) : null
                   const dateStr = parsedDate && isValid(parsedDate)
                     ? format(parsedDate, 'MMM d, yyyy h:mm a')
                     : '—'

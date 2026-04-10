@@ -48,21 +48,23 @@ export function TicketDetailPage() {
     ticket_labor: { id: string; first_name: string; last_name: string; classification_snapshot: string | null; start_time: string | null; end_time: string | null; hours: number | null; reg_rate: number | null; reg_total: number | null }[]
     ticket_vehicles: { id: string; vehicle_label: string | null; mileage_start: number | null; mileage_end: number | null; total_miles: number | null; rate: number | null; total: number | null }[]
     ticket_equipment: { id: string; equip_number: string | null; hours: number | null; rate: number | null; total: number | null }[]
-    ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; created_at: string }[]
+    ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; occurred_at: string }[]
   }
 
   // Has the tech already requested a return on this submission?
   const hasRequestedReturn = (t.ticket_audit_log ?? []).some(e => e.action === 'return_requested')
 
-  // Find the most recent 'returned' audit entry so we can show the admin's note
+  // Find the most recent 'returned' audit entry so we can show the admin's note.
+  // Use string comparison — ISO 8601 timestamps are lexicographically sortable,
+  // which avoids any Date/parseISO parsing edge cases.
   const returnEntry = t.status === 'returned'
-    ? [...(t.ticket_audit_log ?? [])].filter(e => e.action === 'returned').sort(
-        (a, b) => {
-          const ta = a.created_at ? parseISO(a.created_at).getTime() : 0
-          const tb = b.created_at ? parseISO(b.created_at).getTime() : 0
-          return tb - ta
-        }
-      )[0]
+    ? (t.ticket_audit_log ?? [])
+        .filter(e => e.action === 'returned')
+        .reduce<typeof t.ticket_audit_log[number] | null>(
+          (latest, entry) =>
+            !latest || (entry.occurred_at ?? '') > (latest.occurred_at ?? '') ? entry : latest,
+          null
+        )
     : null
 
   const canEdit = (t.status === 'draft' || t.status === 'returned') && (t.created_by === profile?.id || isAdmin)
