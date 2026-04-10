@@ -11,7 +11,7 @@ import { useTicket, useSubmitTicket, useRequestReturn, useDeleteTicket } from '@
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -57,7 +57,7 @@ export function TicketDetailPage() {
   // Find the most recent 'returned' audit entry so we can show the admin's note
   const returnEntry = t.status === 'returned'
     ? [...(t.ticket_audit_log ?? [])].filter(e => e.action === 'returned').sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        (a, b) => parseISO(b.created_at).getTime() - parseISO(a.created_at).getTime()
       )[0]
     : null
 
