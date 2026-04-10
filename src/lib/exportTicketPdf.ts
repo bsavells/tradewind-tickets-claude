@@ -112,11 +112,12 @@ export function exportTicketPdf(t: ExportTicketData): void {
   doc.setLineWidth(0.6)
   doc.line(0, HEADER_H, pageW, HEADER_H)
 
-  // Logo — fit within header height with a small margin
-  const logoH = HEADER_H - 4          // 18 mm tall
-  const logoAspect = 3.2              // approximate width:height ratio of the logo
-  const logoW = logoH * logoAspect    // ~57.6 mm wide
-  doc.addImage(logoUrl, 'PNG', PAGE_MARGIN, 2, logoW, logoH)
+  // Logo — use exact aspect ratio, capped at 95mm wide so ticket number has room
+  const logoAspect = 598 / 84         // exact pixel ratio from source image (7.12)
+  const logoW = 95                    // mm — leaves ~85mm for ticket number area
+  const logoH = logoW / logoAspect    // ~13.3 mm tall
+  const logoY = (HEADER_H - logoH) / 2  // vertically centered in header
+  doc.addImage(logoUrl, 'PNG', PAGE_MARGIN, logoY, logoW, logoH)
 
   // Ticket number (right-aligned, bold blue)
   doc.setFont('helvetica', 'bold')
