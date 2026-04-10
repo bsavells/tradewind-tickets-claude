@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { format } from 'date-fns'
 import { formatTime } from '@/lib/timeUtils'
+import logoUrl from '@/assets/tc_horizontal_with_cerebus.png'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface ExportTicketData {
@@ -59,12 +60,11 @@ export interface ExportTicketData {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const BRAND = 'Tradewind Controls'
 const PAGE_MARGIN = 14
 const SECTION_GAP = 5
-const HEADER_BG: [number, number, number] = [29, 78, 216]   // brand blue
-const HEADER_TEXT: [number, number, number] = [255, 255, 255]
 const TITLE_COLOR: [number, number, number] = [29, 78, 216]
+const ACCENT: [number, number, number] = [29, 78, 216]
+const HEADER_H = 22   // header height in mm
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getY(doc: jsPDF): number {
@@ -104,21 +104,33 @@ export function exportTicketPdf(t: ExportTicketData): void {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
   const pageW = doc.internal.pageSize.getWidth()
 
-  // ── Branded header bar ──────────────────────────────────────────────────────
-  doc.setFillColor(...HEADER_BG)
-  doc.rect(0, 0, pageW, 24, 'F')
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(...HEADER_TEXT)
-  doc.text(BRAND, PAGE_MARGIN, 10)
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'normal')
-  doc.text('Field Service Ticket', PAGE_MARGIN, 17)
+  // ── Header: white background, logo left, ticket info right ─────────────────
+  // White fill + bottom accent line
+  doc.setFillColor(255, 255, 255)
+  doc.rect(0, 0, pageW, HEADER_H, 'F')
+  doc.setDrawColor(...ACCENT)
+  doc.setLineWidth(0.6)
+  doc.line(0, HEADER_H, pageW, HEADER_H)
+
+  // Logo — fit within header height with a small margin
+  const logoH = HEADER_H - 4          // 18 mm tall
+  const logoAspect = 3.2              // approximate width:height ratio of the logo
+  const logoW = logoH * logoAspect    // ~57.6 mm wide
+  doc.addImage(logoUrl, 'PNG', PAGE_MARGIN, 2, logoW, logoH)
+
+  // Ticket number (right-aligned, bold blue)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
-  doc.text(t.ticket_number, pageW - PAGE_MARGIN, 14, { align: 'right' })
+  doc.setTextColor(...ACCENT)
+  doc.text(t.ticket_number, pageW - PAGE_MARGIN, HEADER_H / 2 - 1, { align: 'right' })
 
-  let y = 30
+  // "Field Service Ticket" label below ticket number
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8)
+  doc.setTextColor(100, 100, 100)
+  doc.text('Field Service Ticket', pageW - PAGE_MARGIN, HEADER_H / 2 + 4, { align: 'right' })
+
+  let y = HEADER_H + 6
 
   // ── Job info two-column grid ────────────────────────────────────────────────
   let workDateStr = '—'
@@ -181,7 +193,7 @@ export function exportTicketPdf(t: ExportTicketData): void {
         fmt$(m.price_each),
         m.price_each != null ? fmt$(m.qty * m.price_each) : '—',
       ]),
-      headStyles: { fillColor: HEADER_BG, textColor: HEADER_TEXT, fontSize: 8, fontStyle: 'bold' },
+      headStyles: { fillColor: ACCENT, textColor: [255, 255, 255] as [number, number, number], fontSize: 8, fontStyle: 'bold' },
       styles: { fontSize: 8, cellPadding: 2 },
       columnStyles: {
         0: { cellWidth: 12, halign: 'center' },
@@ -231,7 +243,7 @@ export function exportTicketPdf(t: ExportTicketData): void {
       margin: { left: PAGE_MARGIN, right: PAGE_MARGIN },
       head,
       body,
-      headStyles: { fillColor: HEADER_BG, textColor: HEADER_TEXT, fontSize: 7, fontStyle: 'bold' },
+      headStyles: { fillColor: ACCENT, textColor: [255, 255, 255] as [number, number, number], fontSize: 7, fontStyle: 'bold' },
       styles: { fontSize: 7, cellPadding: 1.5 },
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index >= 5) {
@@ -255,7 +267,7 @@ export function exportTicketPdf(t: ExportTicketData): void {
         fmt$(e.rate),
         e.rate != null && e.hours != null ? fmt$(e.rate * e.hours) : '—',
       ]),
-      headStyles: { fillColor: HEADER_BG, textColor: HEADER_TEXT, fontSize: 8, fontStyle: 'bold' },
+      headStyles: { fillColor: ACCENT, textColor: [255, 255, 255] as [number, number, number], fontSize: 8, fontStyle: 'bold' },
       styles: { fontSize: 8, cellPadding: 2 },
       columnStyles: {
         1: { halign: 'right' },
@@ -284,7 +296,7 @@ export function exportTicketPdf(t: ExportTicketData): void {
           v.rate != null ? fmt$(miles * v.rate) : '—',
         ]
       }),
-      headStyles: { fillColor: HEADER_BG, textColor: HEADER_TEXT, fontSize: 8, fontStyle: 'bold' },
+      headStyles: { fillColor: ACCENT, textColor: [255, 255, 255] as [number, number, number], fontSize: 8, fontStyle: 'bold' },
       styles: { fontSize: 8, cellPadding: 2 },
       columnStyles: {
         1: { halign: 'right' },
