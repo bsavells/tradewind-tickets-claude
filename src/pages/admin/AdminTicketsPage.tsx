@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardList, Search, ChevronRight, FileText, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,9 +20,14 @@ const STATUS_FILTERS: { value: TicketStatus | 'all'; label: string }[] = [
   { value: 'returned', label: 'Returned' },
 ]
 
+const VALID_STATUSES: (TicketStatus | 'all')[] = ['all', 'submitted', 'finalized', 'draft', 'returned']
+
 export function AdminTicketsPage() {
   const navigate = useNavigate()
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('submitted')
+  const [searchParams] = useSearchParams()
+  const paramStatus = searchParams.get('status') as TicketStatus | 'all' | null
+  const initialStatus: TicketStatus | 'all' = paramStatus && VALID_STATUSES.includes(paramStatus) ? paramStatus : 'all'
+  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>(initialStatus)
   const [search, setSearch] = useState('')
 
   const { data: tickets = [], isLoading, refetch, isFetching } = useAllTickets(

@@ -56,25 +56,28 @@ export function AdminDashboardPage() {
           value={valueOrDash(stats?.pending)}
           icon={Clock}
           description="Submitted, awaiting admin"
-          onClick={() => navigate('/admin/tickets')}
+          onClick={() => navigate('/admin/tickets?status=submitted')}
         />
         <StatCard
           title="Finalized"
           value={valueOrDash(stats?.finalizedThisMonth)}
           icon={CheckCircle}
           description="This month"
+          onClick={() => navigate('/admin/tickets?status=finalized')}
         />
         <StatCard
           title="Drafts"
           value={valueOrDash(stats?.drafts)}
           icon={FileText}
           description="In progress"
+          onClick={() => navigate('/admin/tickets?status=draft')}
         />
         <StatCard
           title="Total Tickets"
           value={valueOrDash(stats?.total)}
           icon={ClipboardList}
           description="All time"
+          onClick={() => navigate('/admin/tickets?status=all')}
         />
       </div>
 
