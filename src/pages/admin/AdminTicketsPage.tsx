@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ClipboardList, Search, ChevronRight, FileText } from 'lucide-react'
+import { ClipboardList, Search, ChevronRight, FileText, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -25,7 +25,7 @@ export function AdminTicketsPage() {
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('submitted')
   const [search, setSearch] = useState('')
 
-  const { data: tickets = [], isLoading } = useAllTickets(
+  const { data: tickets = [], isLoading, refetch, isFetching } = useAllTickets(
     statusFilter === 'all' ? undefined : statusFilter
   )
 
@@ -48,9 +48,15 @@ export function AdminTicketsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold">All Tickets</h1>
-        <p className="text-muted-foreground text-sm">View, review, and finalize tickets</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">All Tickets</h1>
+          <p className="text-muted-foreground text-sm">View, review, and finalize tickets</p>
+        </div>
+        <Button variant="outline" size="sm" className="gap-1.5 shrink-0 mt-1" onClick={() => refetch()} disabled={isFetching}>
+          <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+          {isFetching ? 'Refreshing…' : 'Refresh'}
+        </Button>
       </div>
 
       {/* Filters */}
