@@ -22,7 +22,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
-import { format } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 
 interface MaterialRow {
   id: string
@@ -484,8 +484,12 @@ export function AdminTicketReviewPage() {
           <CardContent>
             <ol className="relative border-l border-border ml-2 space-y-4">
               {[...auditLog]
-                .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-                .map(entry => {
+                .sort((a, b) => {
+                  const da = a.created_at ? new Date(a.created_at).getTime() : 0
+                  const db = b.created_at ? new Date(b.created_at).getTime() : 0
+                  return da - db
+                })
+                .map((entry, i) => {
                   const label: Record<string, string> = {
                     submitted: 'Submitted for Review',
                     returned: 'Returned to Tech',
@@ -496,15 +500,19 @@ export function AdminTicketReviewPage() {
                     exported: 'Exported',
                   }
                   const isRequest = entry.action === 'return_requested'
+                  const parsedDate = entry.created_at ? parseISO(entry.created_at) : null
+                  const dateStr = parsedDate && isValid(parsedDate)
+                    ? format(parsedDate, 'MMM d, yyyy h:mm a')
+                    : '—'
                   return (
-                    <li key={entry.id} className="ml-4">
+                    <li key={entry.id ?? i} className="ml-4">
                       <div className={`absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border-2 border-background ${isRequest ? 'bg-yellow-500' : 'bg-primary'}`} />
                       <div className="flex flex-col gap-0.5">
                         <p className={`text-sm font-medium ${isRequest ? 'text-yellow-700 dark:text-yellow-400' : ''}`}>
                           {label[entry.action] ?? entry.action}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {entry.actor_name} · {format(new Date(entry.created_at), 'MMM d, yyyy h:mm a')}
+                          {entry.actor_name} · {dateStr}
                         </p>
                         {entry.note && (
                           <p className="text-sm text-muted-foreground mt-0.5 italic">"{entry.note}"</p>

@@ -51,6 +51,9 @@ export function TicketDetailPage() {
     ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; created_at: string }[]
   }
 
+  // Has the tech already requested a return on this submission?
+  const hasRequestedReturn = (t.ticket_audit_log ?? []).some(e => e.action === 'return_requested')
+
   // Find the most recent 'returned' audit entry so we can show the admin's note
   const returnEntry = t.status === 'returned'
     ? [...(t.ticket_audit_log ?? [])].filter(e => e.action === 'returned').sort(
@@ -269,10 +272,17 @@ export function TicketDetailPage() {
             </Button>
           )}
           {canRequestReturn && (
-            <Button variant="outline" className="flex-1 gap-2" onClick={handleRequestReturn} disabled={requesting}>
-              <RotateCcw className="h-4 w-4" />
-              {requesting ? 'Requesting…' : 'Request Return'}
-            </Button>
+            hasRequestedReturn ? (
+              <div className="flex-1 flex items-center justify-center gap-2 rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 px-4 py-2 text-sm font-medium text-yellow-700 dark:text-yellow-400">
+                <RotateCcw className="h-4 w-4" />
+                Return Requested
+              </div>
+            ) : (
+              <Button variant="outline" className="flex-1 gap-2" onClick={handleRequestReturn} disabled={requesting}>
+                <RotateCcw className="h-4 w-4" />
+                {requesting ? 'Requesting…' : 'Request Return'}
+              </Button>
+            )
           )}
         </div>
       </div>
