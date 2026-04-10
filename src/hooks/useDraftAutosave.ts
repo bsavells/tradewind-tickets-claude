@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { set, get, del } from 'idb-keyval'
 import type { TicketFormData } from './useTickets'
 
-const DRAFT_PREFIX = 'ticket-draft-'
+const DRAFT_PREFIX = 'ticket-draft-v2-'
 
 export function draftKey(ticketId: string) {
   return `${DRAFT_PREFIX}${ticketId}`
