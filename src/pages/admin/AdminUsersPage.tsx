@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -377,6 +377,8 @@ export function AdminUsersPage() {
   const { profile: currentUser } = useAuth()
   const { data: users = [], isLoading, isError, error } = useProfiles()
   if (isError) console.error('[AdminUsersPage] useProfiles error:', error)
+  const { data: vehicles = [] } = useVehicles()
+  const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.id, v.label])), [vehicles])
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
   const [deleting, setDeleting] = useState<Profile | null>(null)
@@ -445,7 +447,7 @@ export function AdminUsersPage() {
                       {(u as unknown as { classifications: { name: string } | null }).classifications?.name ?? '—'}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
-                      {(u as unknown as { vehicles: { label: string } | null }).vehicles?.label ?? '—'}
+                      {u.default_vehicle_id ? (vehicleMap.get(u.default_vehicle_id) ?? '—') : '—'}
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.active ? 'success' : 'outline'}>

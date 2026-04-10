@@ -12,13 +12,12 @@ export function useProfiles() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*, classifications(name), vehicles(label)')
+        .select('*, classifications!profiles_classification_id_fkey(name)')
         .eq('company_id', profile!.company_id)
         .order('last_name')
       if (error) throw error
       return data as (Profile & {
         classifications: { name: string } | null
-        vehicles: { label: string } | null
       })[]
     },
     enabled: !!profile,
