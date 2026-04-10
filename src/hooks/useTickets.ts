@@ -470,6 +470,29 @@ export function useRequestReturn() {
   })
 }
 
+// --- Log an export event ---
+export function useLogTicketExport() {
+  const qc = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ ticketId, format }: { ticketId: string; format: 'pdf' | 'xlsx' }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('ticket_audit_log') as any).insert({
+        ticket_id: ticketId,
+        actor_id: profile!.id,
+        actor_name: `${profile!.first_name} ${profile!.last_name}`,
+        action: 'exported',
+        note: `Exported as ${format.toUpperCase()}`,
+      })
+      if (error) throw error
+    },
+    onSuccess: (_data, { ticketId }) => {
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+    },
+  })
+}
+
 // --- Helpers ---
 async function deleteChildRows(ticketId: string) {
   await Promise.all([

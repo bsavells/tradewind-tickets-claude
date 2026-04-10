@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2, TriangleAlert, FileDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,8 +17,11 @@ import {
   useUnfinalizeTicket,
   useReturnTicket,
   useDeleteTicket,
+  useLogTicketExport,
   type AdminLineEdits,
 } from '@/hooks/useTickets'
+import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
+import { exportTicketXlsx } from '@/lib/exportTicketXlsx'
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
@@ -88,6 +91,7 @@ interface TicketData {
   ticket_labor: LaborRow[]
   ticket_vehicles: VehicleRow[]
   ticket_equipment: EquipmentRow[]
+  ticket_signatures: { kind: string; signer_name: string | null; signed_at: string }[]
   ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; occurred_at: string }[]
 }
 
@@ -107,6 +111,7 @@ export function AdminTicketReviewPage() {
   const unfinalize = useUnfinalizeTicket()
   const returnTicket = useReturnTicket()
   const deleteTicket = useDeleteTicket()
+  const logExport = useLogTicketExport()
 
   const t = rawTicket as unknown as TicketData | undefined
 
@@ -122,6 +127,8 @@ export function AdminTicketReviewPage() {
   const [finalizeOpen, setFinalizeOpen] = useState(false)
   const [unfinalizeOpen, setUnfinalizeOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingXlsx, setExportingXlsx] = useState(false)
 
   useEffect(() => {
     if (!t) return
@@ -176,6 +183,7 @@ export function AdminTicketReviewPage() {
   const canReturn = isWritableAdmin && t.status === 'submitted'
   const canUnfinalize = isWritableAdmin && isFinalized
   const canDelete = isWritableAdmin && !isFinalized
+  const canExport = isWritableAdmin && (t.status === 'submitted' || t.status === 'finalized')
 
   function updateMaterial(id: string, price: string) {
     setMaterials(prev => prev.map(m => m.id === id ? { ...m, price_each: num(price) } : m))
@@ -243,6 +251,26 @@ export function AdminTicketReviewPage() {
     setReturnOpen(false)
     setReturnNote('')
     navigate('/admin/tickets')
+  }
+
+  async function handleExportPdf() {
+    setExportingPdf(true)
+    try {
+      exportTicketPdf(t as unknown as ExportTicketData)
+      await logExport.mutateAsync({ ticketId: t!.id, format: 'pdf' })
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
+  async function handleExportXlsx() {
+    setExportingXlsx(true)
+    try {
+      exportTicketXlsx(t as unknown as ExportTicketData)
+      await logExport.mutateAsync({ ticketId: t!.id, format: 'xlsx' })
+    } finally {
+      setExportingXlsx(false)
+    }
   }
 
   return (
@@ -553,6 +581,34 @@ export function AdminTicketReviewPage() {
           <Button variant="outline" className="gap-2" onClick={() => setReturnOpen(true)}>
             <RotateCcw className="h-4 w-4" /> Return to User
           </Button>
+        )}
+        {canExport && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={exportingPdf}
+              onClick={handleExportPdf}
+            >
+              {exportingPdf
+                ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <FileDown className="h-3.5 w-3.5" />}
+              PDF
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={exportingXlsx}
+              onClick={handleExportXlsx}
+            >
+              {exportingXlsx
+                ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                : <FileDown className="h-3.5 w-3.5" />}
+              XLSX
+            </Button>
+          </>
         )}
         {canFinalize && (
           <Button className="gap-2 ml-auto" onClick={() => setFinalizeOpen(true)}>
