@@ -195,7 +195,7 @@ function EditUserDialog({
   )
 }
 
-// ---- Delete confirm dialog ----
+// ---- Disable confirm dialog ----
 function DeleteUserDialog({
   open, onClose, user,
 }: {
@@ -206,13 +206,13 @@ function DeleteUserDialog({
   const deleteUser = useDeleteUser()
   const [error, setError] = useState<string | null>(null)
 
-  async function handleDelete() {
+  async function handleDisable() {
     setError(null)
     try {
       await deleteUser.mutateAsync(user.id)
       onClose()
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to delete user')
+      setError(e instanceof Error ? e.message : 'Failed to disable user')
     }
   }
 
@@ -220,16 +220,16 @@ function DeleteUserDialog({
     <Dialog open={open} onOpenChange={v => { if (!v) onClose() }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Delete User</DialogTitle>
+          <DialogTitle>Disable User</DialogTitle>
           <DialogDescription>
-            This will permanently delete <strong>{user.first_name} {user.last_name}</strong> ({user.email}) and all their data. This cannot be undone.
+            <strong>{user.first_name} {user.last_name}</strong> ({user.email}) will be marked inactive and immediately lose access to the app. Their tickets and data are preserved. You can re-enable them at any time via Edit.
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={deleteUser.isPending}>
-            {deleteUser.isPending ? 'Deleting…' : 'Delete'}
+          <Button variant="destructive" onClick={handleDisable} disabled={deleteUser.isPending}>
+            {deleteUser.isPending ? 'Disabling…' : 'Disable User'}
           </Button>
         </DialogFooter>
       </DialogContent>
