@@ -229,7 +229,10 @@ export function useSubmitTicket() {
         action: 'submitted',
       })
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tickets'] }),
+    onSuccess: (_data, ticketId) => {
+      qc.invalidateQueries({ queryKey: ['tickets'] })
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+    },
   })
 }
 

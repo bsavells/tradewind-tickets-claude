@@ -57,6 +57,7 @@ export function TicketDetailPage() {
     setSubmitting(true)
     try {
       await submitTicket.mutateAsync(t.id)
+      navigate('/tickets')
     } finally {
       setSubmitting(false)
     }
