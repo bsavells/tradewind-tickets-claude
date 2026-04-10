@@ -165,7 +165,12 @@ export function AdminTicketReviewPage() {
 
   const isFinalized = t.status === 'finalized'
   const auditLog = t.ticket_audit_log ?? []
-  const returnRequested = t.status === 'submitted' && auditLog.some(e => e.action === 'return_requested')
+  const lastSubmittedTime = auditLog
+    .filter(e => e.action === 'submitted')
+    .reduce((max, e) => Math.max(max, e.occurred_at ? new Date(e.occurred_at).getTime() : 0), 0)
+  const returnRequested = t.status === 'submitted' && auditLog.some(
+    e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
+  )
   const canEdit = isWritableAdmin && !isFinalized
   const canFinalize = isWritableAdmin && (t.status === 'submitted')
   const canReturn = isWritableAdmin && t.status === 'submitted'

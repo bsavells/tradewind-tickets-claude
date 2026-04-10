@@ -51,8 +51,14 @@ export function TicketDetailPage() {
     ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; occurred_at: string }[]
   }
 
-  // Has the tech already requested a return on this submission?
-  const hasRequestedReturn = (t.ticket_audit_log ?? []).some(e => e.action === 'return_requested')
+  // A return request is still pending only if the most recent return_requested
+  // occurred after the most recent submitted event (i.e. not cleared by resubmission).
+  const lastSubmittedTime = (t.ticket_audit_log ?? [])
+    .filter(e => e.action === 'submitted')
+    .reduce((max, e) => Math.max(max, e.occurred_at ? new Date(e.occurred_at).getTime() : 0), 0)
+  const hasRequestedReturn = (t.ticket_audit_log ?? []).some(
+    e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
+  )
 
   // Find the most recent 'returned' audit entry so we can show the admin's note.
   // Use string comparison — ISO 8601 timestamps are lexicographically sortable,

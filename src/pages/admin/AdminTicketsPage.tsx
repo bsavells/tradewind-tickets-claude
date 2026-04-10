@@ -101,8 +101,13 @@ export function AdminTicketsPage() {
               const customerName = (t as unknown as { customers: { name: string } }).customers?.name ?? '—'
               const tech = (t as unknown as { profiles: { first_name: string; last_name: string } | null }).profiles
               const techName = tech ? `${tech.first_name} ${tech.last_name}` : '—'
-              const auditLog = (t as unknown as { ticket_audit_log: { action: string }[] }).ticket_audit_log ?? []
-              const returnRequested = t.status === 'submitted' && auditLog.some(e => e.action === 'return_requested')
+              const auditLog = (t as unknown as { ticket_audit_log: { action: string; occurred_at: string }[] }).ticket_audit_log ?? []
+              const lastSubmittedTime = auditLog
+                .filter(e => e.action === 'submitted')
+                .reduce((max, e) => Math.max(max, e.occurred_at ? new Date(e.occurred_at).getTime() : 0), 0)
+              const returnRequested = t.status === 'submitted' && auditLog.some(
+                e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
+              )
               return (
                 <div
                   key={t.id}
