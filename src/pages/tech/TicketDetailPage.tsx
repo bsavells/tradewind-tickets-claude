@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Send, RotateCcw, Clock, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Send, RotateCcw, Clock, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +46,15 @@ export function TicketDetailPage() {
     ticket_labor: { id: string; first_name: string; last_name: string; classification_snapshot: string | null; start_time: string | null; end_time: string | null; hours: number | null; reg_rate: number | null; reg_total: number | null }[]
     ticket_vehicles: { id: string; vehicle_label: string | null; mileage_start: number | null; mileage_end: number | null; total_miles: number | null; rate: number | null; total: number | null }[]
     ticket_equipment: { id: string; equip_number: string | null; hours: number | null; rate: number | null; total: number | null }[]
+    ticket_audit_log: { id: string; action: string; note: string | null; actor_name: string; created_at: string }[]
   }
+
+  // Find the most recent 'returned' audit entry so we can show the admin's note
+  const returnEntry = t.status === 'returned'
+    ? [...(t.ticket_audit_log ?? [])].filter(e => e.action === 'returned').sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )[0]
+    : null
 
   const canEdit = (t.status === 'draft' || t.status === 'returned') && (t.created_by === profile?.id || isAdmin)
   const canSubmit = (t.status === 'draft' || t.status === 'returned') && t.created_by === profile?.id
@@ -93,6 +101,23 @@ export function TicketDetailPage() {
           </Button>
         )}
       </div>
+
+      {/* Returned banner */}
+      {returnEntry && (
+        <div className="rounded-md border border-yellow-300 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-800 px-4 py-3 flex gap-3">
+          <TriangleAlert className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
+              Returned by {returnEntry.actor_name}
+            </p>
+            {returnEntry.note ? (
+              <p className="text-sm text-yellow-700 dark:text-yellow-400 whitespace-pre-wrap">{returnEntry.note}</p>
+            ) : (
+              <p className="text-sm text-yellow-600 dark:text-yellow-500 italic">No note provided.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Job Info */}
       <Card>
