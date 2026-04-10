@@ -685,11 +685,14 @@ export function TicketFormPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">Other / unspecified</SelectItem>
-                          {vehicleOptions.map(v => (
-                            <SelectItem key={v.id} value={v.id}>
-                              {v.label}{v.description ? ` — ${v.description}` : ''}
-                            </SelectItem>
-                          ))}
+                          {vehicleOptions.map(v => {
+                            const detail = [v.year, v.make, v.model].filter(Boolean).join(' ')
+                            return (
+                              <SelectItem key={v.id} value={v.id}>
+                                {v.label}{detail ? ` — ${detail}` : ''}
+                              </SelectItem>
+                            )
+                          })}
                         </SelectContent>
                       </Select>
                     </div>

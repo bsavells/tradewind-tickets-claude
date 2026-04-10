@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -257,10 +257,9 @@ function VehicleDialog({
   )
 }
 
-type VehicleWithProfile = Vehicle & { profiles: { first_name: string; last_name: string } | null }
-
-function VehicleCard({ v, onEdit, onToggle }: {
-  v: VehicleWithProfile
+function VehicleCard({ v, assigneeName, onEdit, onToggle }: {
+  v: Vehicle
+  assigneeName: string | null
   onEdit: () => void
   onToggle: (active: boolean) => void
 }) {
@@ -295,10 +294,8 @@ function VehicleCard({ v, onEdit, onToggle }: {
           {v.current_mileage != null && (
             <p className="text-xs text-muted-foreground">{v.current_mileage.toLocaleString()} mi</p>
           )}
-          {v.profiles && (
-            <p className="text-xs text-muted-foreground">
-              {v.profiles.first_name} {v.profiles.last_name}
-            </p>
+          {assigneeName && (
+            <p className="text-xs text-muted-foreground">{assigneeName}</p>
           )}
           {v.is_lease && v.lease_end_date && (
             <p className="text-xs text-muted-foreground">
@@ -325,9 +322,15 @@ function VehicleCard({ v, onEdit, onToggle }: {
 
 export function AdminVehiclesPage() {
   const { data: vehicles = [], isLoading } = useVehicles()
+  const { data: users = [] } = useProfiles()
   const toggleActive = useToggleVehicleActive()
   const [addOpen, setAddOpen] = useState(false)
   const [editing, setEditing] = useState<Vehicle | null>(null)
+
+  const userMap = useMemo(
+    () => new Map(users.map(u => [u.id, `${u.first_name} ${u.last_name}`])),
+    [users]
+  )
 
   const active = vehicles.filter(v => v.active)
   const inactive = vehicles.filter(v => !v.active)
@@ -371,7 +374,8 @@ export function AdminVehiclesPage() {
               active.map(v => (
                 <VehicleCard
                   key={v.id}
-                  v={v as VehicleWithProfile}
+                  v={v}
+                  assigneeName={v.assigned_user_id ? (userMap.get(v.assigned_user_id) ?? null) : null}
                   onEdit={() => setEditing(v)}
                   onToggle={active => toggleActive.mutate({ id: v.id, active })}
                 />
@@ -390,7 +394,8 @@ export function AdminVehiclesPage() {
               {inactive.map(v => (
                 <VehicleCard
                   key={v.id}
-                  v={v as VehicleWithProfile}
+                  v={v}
+                  assigneeName={v.assigned_user_id ? (userMap.get(v.assigned_user_id) ?? null) : null}
                   onEdit={() => setEditing(v)}
                   onToggle={active => toggleActive.mutate({ id: v.id, active })}
                 />

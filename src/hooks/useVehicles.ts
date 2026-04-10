@@ -5,6 +5,8 @@ import type { Database } from '@/lib/database.types'
 
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
 
+// Simple query — no profile join to avoid bidirectional FK ambiguity.
+// AdminVehiclesPage resolves assigned user names client-side via useProfiles.
 export function useVehicles() {
   const { profile } = useAuth()
   return useQuery({
@@ -12,11 +14,11 @@ export function useVehicles() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vehicles')
-        .select('*, profiles!vehicles_assigned_user_id_fkey(first_name, last_name)')
+        .select('*')
         .eq('company_id', profile!.company_id)
         .order('label')
       if (error) throw error
-      return data as (Vehicle & { profiles: { first_name: string; last_name: string } | null })[]
+      return data as Vehicle[]
     },
     enabled: !!profile,
   })
