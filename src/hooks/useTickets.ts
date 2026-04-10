@@ -117,7 +117,8 @@ export function useTicket(id: string | undefined) {
           ticket_vehicles(*),
           ticket_equipment(*),
           ticket_photos(*),
-          ticket_signatures(*)
+          ticket_signatures(*),
+          ticket_audit_log(*)
         `)
         .eq('id', id!)
         .single()
