@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -18,7 +18,7 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<React.ReactNode | null>(null)
   const [loading, setLoading] = useState(false)
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
@@ -48,7 +48,15 @@ export function LoginPage() {
         .single()
       if (profile && !profile.active) {
         await supabase.auth.signOut()
-        setError('Your account has been deactivated. Please contact it@tradewindcontrols.com if you believe this is a mistake.')
+        setError(
+          <>
+            Your account has been deactivated. Please contact{' '}
+            <a href="mailto:it@tradewindcontrols.com" className="underline">
+              it@tradewindcontrols.com
+            </a>
+            {' '}if you believe this is a mistake.
+          </>
+        )
         setLoading(false)
         return
       }
