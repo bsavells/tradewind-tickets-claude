@@ -28,16 +28,33 @@ export function LoginPage() {
   async function onSubmit(data: LoginForm) {
     setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error: signInError } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.password,
     })
-    if (error) {
-      setError(error.message)
+    if (signInError) {
+      setError(signInError.message)
       setLoading(false)
-    } else {
-      navigate('/')
+      return
     }
+
+    // Check if the account has been deactivated
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('active')
+        .eq('id', user.id)
+        .single()
+      if (profile && !profile.active) {
+        await supabase.auth.signOut()
+        setError('Your account has been deactivated. Please contact it@tradewindcontrols.com if you believe this is a mistake.')
+        setLoading(false)
+        return
+      }
+    }
+
+    navigate('/')
   }
 
   return (
