@@ -22,7 +22,7 @@ const sections = [
     description: 'Labor categories and default billing rates',
   },
   {
-    to: '/admin/settings/vehicles',
+    to: '/admin/vehicles',
     icon: Truck,
     label: 'Vehicles',
     description: 'Company vehicles and mileage rates',

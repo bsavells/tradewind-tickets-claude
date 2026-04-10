@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Settings,
+  Truck,
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -55,6 +56,7 @@ export function AppShell() {
     { to: '/tickets', icon: FileText, label: 'My Tickets' },
     { to: '/admin/customers', icon: Building2, label: 'Customers' },
     { to: '/admin/users', icon: Users, label: 'Users' },
+    { to: '/admin/vehicles', icon: Truck, label: 'Vehicles' },
     { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ]
 

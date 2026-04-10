@@ -54,6 +54,7 @@ export default function App() {
                   <Route path="/admin/tickets/:id" element={<AdminTicketReviewPage />} />
                   <Route path="/admin/customers" element={<AdminCustomersPage />} />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/vehicles" element={<AdminVehiclesPage />} />
                   <Route path="/admin/settings" element={<AdminSettingsPage />} />
                   <Route path="/admin/settings/classifications" element={<AdminClassificationsPage />} />
                   <Route path="/admin/settings/vehicles" element={<AdminVehiclesPage />} />

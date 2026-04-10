@@ -12,7 +12,7 @@ export function useVehicles() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('vehicles')
-        .select('*, profiles(first_name, last_name)')
+        .select('*, profiles!vehicles_assigned_user_id_fkey(first_name, last_name)')
         .eq('company_id', profile!.company_id)
         .order('label')
       if (error) throw error
@@ -22,17 +22,29 @@ export function useVehicles() {
   })
 }
 
+export interface VehiclePayload {
+  id?: string
+  label: string
+  truck_number?: string | null
+  make?: string | null
+  model?: string | null
+  year?: number | null
+  color?: string | null
+  license_plate?: string | null
+  date_acquired?: string | null
+  is_lease?: boolean
+  lease_end_date?: string | null
+  default_mileage_rate: number
+  current_mileage?: number | null
+  assigned_user_id?: string | null
+  description?: string | null
+}
+
 export function useUpsertVehicle() {
   const qc = useQueryClient()
   const { profile } = useAuth()
   return useMutation({
-    mutationFn: async (payload: {
-      id?: string
-      label: string
-      description?: string | null
-      default_mileage_rate: number
-      assigned_user_id?: string | null
-    }) => {
+    mutationFn: async (payload: VehiclePayload) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.from('vehicles') as any)
         .upsert({ ...payload, company_id: profile!.company_id })
