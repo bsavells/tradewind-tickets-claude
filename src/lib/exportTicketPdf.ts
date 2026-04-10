@@ -368,5 +368,19 @@ export function exportTicketPdf(t: ExportTicketData): void {
     )
   }
 
-  doc.save(`${t.ticket_number}.pdf`)
+  // Open in a new tab — if the browser/OS is configured to use Adobe Reader
+  // for PDFs, it will launch there. Otherwise opens in the browser PDF viewer.
+  const blob = doc.output('blob')
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${t.ticket_number}.pdf`
+  a.target = '_blank'
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  // Also open in a new tab so it's immediately viewable
+  window.open(url, '_blank')
+  setTimeout(() => URL.revokeObjectURL(url), 30_000)
 }
