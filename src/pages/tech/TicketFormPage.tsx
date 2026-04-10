@@ -170,6 +170,7 @@ export function TicketFormPage() {
   const createTicket = useCreateTicket()
   const updateTicket = useUpdateTicket()
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [draftRestored, setDraftRestored] = useState(false)
   const [contactPickerKey, setContactPickerKey] = useState(0)
   const draftId = id ?? 'new'
@@ -317,6 +318,7 @@ export function TicketFormPage() {
 
   async function onSubmit(values: FormValues) {
     setSaving(true)
+    setSaveError(null)
     try {
       const data = values as unknown as TicketFormData
       if (isEdit && id) {
@@ -328,6 +330,9 @@ export function TicketFormPage() {
         return
       }
       navigate('/tickets')
+    } catch (err: unknown) {
+      console.error('[TicketFormPage] save error:', err)
+      setSaveError(err instanceof Error ? err.message : 'Failed to save ticket. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -399,6 +404,12 @@ export function TicketFormPage() {
           {saving ? 'Saving…' : 'Save'}
         </Button>
       </div>
+
+      {saveError && (
+        <div className="rounded-md bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
