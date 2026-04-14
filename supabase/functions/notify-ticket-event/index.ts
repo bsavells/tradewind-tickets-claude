@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     const { ticket_id, event_kind } = await req.json() as {
       ticket_id: string
-      event_kind: 'ticket_submitted' | 'ticket_returned' | 'ticket_finalized' | 'ticket_return_requested'
+      event_kind: 'ticket_submitted' | 'ticket_returned' | 'ticket_finalized' | 'ticket_return_requested' | 'ticket_deleted'
     }
 
     if (!ticket_id || !event_kind) {
@@ -260,6 +260,34 @@ Deno.serve(async (req) => {
               html: buildEmailHtml(title, customerName || null, ticket.ticket_number),
             })
           }
+        }
+      }
+    }
+
+    // ── ticket_deleted: notify the ticket creator (always — no opt-out) ───────
+    if (event_kind === 'ticket_deleted') {
+      if (ticket.created_by && ticket.created_by !== user.id) {
+        const { data: creator } = await admin
+          .from('profiles')
+          .select('id, email, active')
+          .eq('id', ticket.created_by)
+          .single()
+
+        if (creator && creator.active) {
+          const title = `Ticket ${ticket.ticket_number} has been deleted`
+          inAppRows.push({
+            company_id: ticket.company_id,
+            recipient_id: creator.id,
+            ticket_id: null, // ticket no longer exists after this
+            kind: event_kind,
+            title,
+            body: customerName,
+          })
+          emailJobs.push({
+            to: creator.email,
+            subject: title,
+            html: buildEmailHtml(title, customerName || null, ticket.ticket_number),
+          })
         }
       }
     }

@@ -250,6 +250,12 @@ export function useDeleteTicket() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (ticketId: string) => {
+      // Notify BEFORE deleting so the edge function can still read the ticket.
+      // Errors are swallowed so a notification failure never blocks deletion.
+      await supabase.functions.invoke('notify-ticket-event', {
+        body: { ticket_id: ticketId, event_kind: 'ticket_deleted' },
+      }).catch(console.error)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.rpc as any)('delete_ticket_safe', { p_ticket_id: ticketId })
       if (error) throw error
