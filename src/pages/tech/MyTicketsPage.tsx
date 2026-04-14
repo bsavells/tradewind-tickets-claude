@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Plus, FileText, ChevronRight, Send, Trash2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -99,6 +100,7 @@ function TicketRow({
 
 export function MyTicketsPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { profile } = useAuth()
   const { data: tickets = [], isLoading, refetch, isFetching } = useMyTickets()
   const submitTicket = useSubmitTicket()
@@ -120,6 +122,9 @@ export function MyTicketsPage() {
 
     function onEvent() {
       refetchRef.current()
+      // Also invalidate individual ticket detail caches so navigating into a
+      // ticket after a status change (e.g. admin return) shows fresh data.
+      qc.invalidateQueries({ queryKey: ['ticket'] })
     }
 
     // Notifications fire when an admin finalizes or returns a ticket
