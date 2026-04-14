@@ -8,7 +8,14 @@ import { useAuth } from '@/contexts/AuthContext'
 
 // anchor="left"  → dropdown's left edge aligns with bell → opens RIGHTWARD (use in sidebar)
 // anchor="right" → dropdown's right edge aligns with bell → opens LEFTWARD (use in topbar)
-export function NotificationBell({ anchor = 'right' }: { anchor?: 'left' | 'right' }) {
+// opensUp        → dropdown appears above the bell instead of below (use when bell is at bottom of screen)
+export function NotificationBell({
+  anchor = 'right',
+  opensUp = false,
+}: {
+  anchor?: 'left' | 'right'
+  opensUp?: boolean
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -61,7 +68,8 @@ export function NotificationBell({ anchor = 'right' }: { anchor?: 'left' | 'righ
 
       {open && (
         <div className={cn(
-          'absolute top-9 z-50 w-80 rounded-lg border bg-popover shadow-lg',
+          'absolute z-50 w-80 rounded-lg border bg-popover shadow-lg',
+          opensUp ? 'bottom-full mb-2' : 'top-9',
           anchor === 'left' ? 'left-0' : 'right-0'
         )}>
           <div className="flex items-center justify-between border-b px-4 py-3">
