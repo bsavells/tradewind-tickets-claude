@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
@@ -40,6 +42,7 @@ export function AdminTicketsPage() {
   const [search, setSearch] = useState('')
   const [hasUpdates, setHasUpdates] = useState(false)
   const [confirmReturn, setConfirmReturn] = useState<{ id: string; number: string } | null>(null)
+  const [returnNote, setReturnNote] = useState('')
   const [confirmFinalize, setConfirmFinalize] = useState<{ id: string; number: string } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; number: string } | null>(null)
   const [exportingPdfIds, setExportingPdfIds] = useState<Set<string>>(new Set())
@@ -89,8 +92,9 @@ export function AdminTicketsPage() {
 
   async function handleConfirmReturn() {
     if (!confirmReturn) return
-    await returnTicket.mutateAsync({ ticketId: confirmReturn.id })
+    await returnTicket.mutateAsync({ ticketId: confirmReturn.id, note: returnNote || undefined })
     setConfirmReturn(null)
+    setReturnNote('')
   }
 
   async function handleConfirmFinalize() {
@@ -326,16 +330,25 @@ export function AdminTicketsPage() {
       </Card>
 
       {/* Return confirmation dialog */}
-      <Dialog open={!!confirmReturn} onOpenChange={v => { if (!v) setConfirmReturn(null) }}>
-        <DialogContent className="max-w-sm">
+      <Dialog open={!!confirmReturn} onOpenChange={v => { if (!v) { setConfirmReturn(null); setReturnNote('') } }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Return Ticket</DialogTitle>
+            <DialogTitle>Return to User</DialogTitle>
             <DialogDescription>
               Return <strong>{confirmReturn?.number}</strong> to the technician for revision?
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1.5 px-6">
+            <Label>Note (optional)</Label>
+            <Textarea
+              rows={4}
+              value={returnNote}
+              onChange={e => setReturnNote(e.target.value)}
+              placeholder="e.g. Please add the missing part numbers for material lines 3 and 4."
+            />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmReturn(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setConfirmReturn(null); setReturnNote('') }}>Cancel</Button>
             <Button onClick={handleConfirmReturn} disabled={returnTicket.isPending}>
               {returnTicket.isPending ? 'Returning…' : 'Return'}
             </Button>
