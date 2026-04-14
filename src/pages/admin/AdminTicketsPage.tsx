@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ClipboardList, Search, ChevronRight, FileText, RefreshCw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { useAllTickets } from '@/hooks/useTickets'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Database } from '@/lib/database.types'
 
 type TicketStatus = Database['public']['Tables']['tickets']['Row']['status']
@@ -24,15 +26,60 @@ const VALID_STATUSES: (TicketStatus | 'all')[] = ['all', 'submitted', 'finalized
 
 export function AdminTicketsPage() {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const [searchParams] = useSearchParams()
   const paramStatus = searchParams.get('status') as TicketStatus | 'all' | null
   const initialStatus: TicketStatus | 'all' = paramStatus && VALID_STATUSES.includes(paramStatus) ? paramStatus : 'all'
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>(initialStatus)
   const [search, setSearch] = useState('')
+  const [hasUpdates, setHasUpdates] = useState(false)
 
   const { data: tickets = [], isLoading, refetch, isFetching } = useAllTickets(
     statusFilter === 'all' ? undefined : statusFilter
   )
+
+  const refetchRef = useRef(refetch)
+  refetchRef.current = refetch
+
+  function handleRefresh() {
+    refetchRef.current()
+    setHasUpdates(false)
+  }
+
+  useEffect(() => {
+    if (!profile?.id || !profile?.company_id) return
+
+    function onEvent() {
+      refetchRef.current()
+    }
+
+    const notifChannel = supabase
+      .channel(`alltickets-notif:${profile.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `recipient_id=eq.${profile.id}`,
+      }, onEvent)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') setHasUpdates(true)
+      })
+
+    const ticketChannel = supabase
+      .channel(`alltickets-tickets:${profile.company_id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tickets',
+        filter: `company_id=eq.${profile.company_id}`,
+      }, onEvent)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(notifChannel)
+      supabase.removeChannel(ticketChannel)
+    }
+  }, [profile?.id, profile?.company_id])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return tickets
@@ -58,11 +105,27 @@ export function AdminTicketsPage() {
           <h1 className="text-2xl font-bold">All Tickets</h1>
           <p className="text-muted-foreground text-sm">View, review, and finalize tickets</p>
         </div>
-        <Button variant="outline" size="sm" className="gap-1.5 shrink-0 mt-1" onClick={() => refetch()} disabled={isFetching}>
+        <Button variant="outline" size="sm" className="gap-1.5 shrink-0 mt-1" onClick={handleRefresh} disabled={isFetching}>
           <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
           {isFetching ? 'Refreshing…' : 'Refresh'}
         </Button>
       </div>
+
+      {/* Fallback banner in case Realtime misses an event */}
+      {hasUpdates && (
+        <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            Ticket activity detected — this list may be out of date.
+          </p>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1.5 text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline shrink-0 ml-4"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">

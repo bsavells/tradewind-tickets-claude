@@ -3,8 +3,6 @@ import { ClipboardList, CheckCircle, Clock, FileText, ChevronRight, RefreshCw } 
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { useTicketStats, useAllTickets } from '@/hooks/useTickets'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
@@ -48,11 +46,8 @@ export function AdminDashboardPage() {
   const { data: pending = [], isLoading: pendingLoading, refetch: refetchPending } = useAllTickets('submitted')
 
   const [hasUpdates, setHasUpdates] = useState(false)
-  const [autoRefresh, setAutoRefresh] = useState(false)
 
-  // Refs so the Realtime callback always sees the latest values
-  // without needing to re-subscribe every render
-  const autoRefreshRef = useRef(false)
+  // Refs so the Realtime callback always sees the latest refetch functions
   const refetchStatsRef = useRef(refetchStats)
   const refetchPendingRef = useRef(refetchPending)
   refetchStatsRef.current = refetchStats
@@ -64,31 +59,24 @@ export function AdminDashboardPage() {
     setHasUpdates(false)
   }
 
-  function handleAutoRefreshChange(val: boolean) {
-    setAutoRefresh(val)
-    autoRefreshRef.current = val
-    if (val) {
-      // Always do an immediate refresh when enabling live updates
-      handleRefresh()
-    }
-  }
-
-  // Drive live updates off the notifications table, which is already in the
-  // Realtime publication. New admin notifications (ticket_submitted,
-  // ticket_return_requested) are the exact events that change the pending list.
-  // Also subscribe to the tickets table directly for any admin-side actions
-  // (finalize, return) — this requires the tickets table to be in the
-  // Realtime publication: ALTER PUBLICATION supabase_realtime ADD TABLE tickets;
+  // Live updates are always on. We subscribe to:
+  // 1. notifications INSERT for this admin — fires reliably for ticket_submitted
+  //    and ticket_return_requested (notifications table is in the Realtime publication)
+  // 2. tickets changes for the company — fires once you run:
+  //    ALTER PUBLICATION supabase_realtime ADD TABLE tickets;
+  // If Realtime fires, we auto-refresh. If it misses something, the banner
+  // gives the admin a manual escape hatch.
   useEffect(() => {
     if (!profile?.id || !profile?.company_id) return
 
     function onEvent() {
-      if (autoRefreshRef.current) {
-        refetchStatsRef.current()
-        refetchPendingRef.current()
-      } else {
-        setHasUpdates(true)
-      }
+      refetchStatsRef.current()
+      refetchPendingRef.current()
+    }
+
+    function onMissedEvent() {
+      // Fallback: show banner in case Realtime missed something
+      setHasUpdates(true)
     }
 
     const notifChannel = supabase
@@ -99,7 +87,9 @@ export function AdminDashboardPage() {
         table: 'notifications',
         filter: `recipient_id=eq.${profile.id}`,
       }, onEvent)
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') onMissedEvent()
+      })
 
     const ticketChannel = supabase
       .channel(`dashboard-tickets:${profile.company_id}`)
@@ -121,24 +111,12 @@ export function AdminDashboardPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm">Overview of all work tickets</p>
-        </div>
-        <div className="flex items-center gap-2 pt-1 shrink-0">
-          <Switch
-            id="live-updates"
-            checked={autoRefresh}
-            onCheckedChange={handleAutoRefreshChange}
-          />
-          <Label htmlFor="live-updates" className="text-sm text-muted-foreground cursor-pointer select-none">
-            Live updates
-          </Label>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground text-sm">Overview of all work tickets</p>
       </div>
 
-      {/* New activity banner */}
+      {/* Fallback banner in case Realtime misses an event */}
       {hasUpdates && (
         <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5">
           <p className="text-sm text-blue-800 dark:text-blue-200">
