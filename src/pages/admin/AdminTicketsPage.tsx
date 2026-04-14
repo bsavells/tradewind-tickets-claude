@@ -1,11 +1,15 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Search, ChevronRight, FileText, RefreshCw } from 'lucide-react'
+import { ClipboardList, Search, ChevronRight, FileText, RefreshCw, FileDown, RotateCcw } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { useAllTickets } from '@/hooks/useTickets'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog'
+import { useAllTickets, useReturnTicket } from '@/hooks/useTickets'
+import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
@@ -27,16 +31,21 @@ const VALID_STATUSES: (TicketStatus | 'all')[] = ['all', 'submitted', 'finalized
 export function AdminTicketsPage() {
   const navigate = useNavigate()
   const { profile } = useAuth()
+  const isWritableAdmin = profile?.role === 'admin' && !profile?.is_readonly_admin
+
   const [searchParams] = useSearchParams()
   const paramStatus = searchParams.get('status') as TicketStatus | 'all' | null
   const initialStatus: TicketStatus | 'all' = paramStatus && VALID_STATUSES.includes(paramStatus) ? paramStatus : 'all'
   const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>(initialStatus)
   const [search, setSearch] = useState('')
   const [hasUpdates, setHasUpdates] = useState(false)
+  const [confirmReturn, setConfirmReturn] = useState<{ id: string; number: string } | null>(null)
+  const [exportingPdfIds, setExportingPdfIds] = useState<Set<string>>(new Set())
 
   const { data: tickets = [], isLoading, refetch, isFetching } = useAllTickets(
     statusFilter === 'all' ? undefined : statusFilter
   )
+  const returnTicket = useReturnTicket()
 
   const refetchRef = useRef(refetch)
   refetchRef.current = refetch
@@ -44,6 +53,40 @@ export function AdminTicketsPage() {
   function handleRefresh() {
     refetchRef.current()
     setHasUpdates(false)
+  }
+
+  async function handleExportPdf(e: React.MouseEvent, ticketId: string) {
+    e.stopPropagation()
+    setExportingPdfIds(prev => new Set(prev).add(ticketId))
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select(`
+          *,
+          customers(name, customer_contacts(*)),
+          profiles!tickets_created_by_fkey(first_name, last_name),
+          ticket_materials(*),
+          ticket_labor(*),
+          ticket_vehicles(*),
+          ticket_equipment(*),
+          ticket_photos(*),
+          ticket_signatures(*),
+          ticket_audit_log(*)
+        `)
+        .eq('id', ticketId)
+        .single()
+      if (!error && data) {
+        exportTicketPdf(data as unknown as ExportTicketData)
+      }
+    } finally {
+      setExportingPdfIds(prev => { const s = new Set(prev); s.delete(ticketId); return s })
+    }
+  }
+
+  async function handleConfirmReturn() {
+    if (!confirmReturn) return
+    await returnTicket.mutateAsync({ ticketId: confirmReturn.id })
+    setConfirmReturn(null)
   }
 
   useEffect(() => {
@@ -111,7 +154,6 @@ export function AdminTicketsPage() {
         </Button>
       </div>
 
-      {/* Fallback banner in case Realtime misses an event */}
       {hasUpdates && (
         <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5">
           <p className="text-sm text-blue-800 dark:text-blue-200">
@@ -176,6 +218,8 @@ export function AdminTicketsPage() {
               const returnRequested = t.status === 'submitted' && auditLog.some(
                 e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
               )
+              const isExportingPdf = exportingPdfIds.has(t.id)
+
               return (
                 <div
                   key={t.id}
@@ -203,11 +247,36 @@ export function AdminTicketsPage() {
                       <p className="text-xs text-muted-foreground truncate">{t.job_location}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     {Number(t.grand_total) > 0 && (
                       <span className="text-sm font-semibold tabular-nums">
                         ${Number(t.grand_total).toFixed(2)}
                       </span>
+                    )}
+                    {t.status === 'finalized' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs"
+                        disabled={isExportingPdf}
+                        onClick={e => handleExportPdf(e, t.id)}
+                      >
+                        {isExportingPdf
+                          ? <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          : <FileDown className="h-3 w-3" />}
+                        PDF
+                      </Button>
+                    )}
+                    {t.status !== 'finalized' && isWritableAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={e => { e.stopPropagation(); setConfirmReturn({ id: t.id, number: t.ticket_number }) }}
+                      >
+                        <RotateCcw className="h-3 w-3" />
+                        Return
+                      </Button>
                     )}
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
@@ -217,6 +286,27 @@ export function AdminTicketsPage() {
           </div>
         )}
       </Card>
+
+      {/* Return confirmation dialog */}
+      <Dialog open={!!confirmReturn} onOpenChange={v => { if (!v) setConfirmReturn(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Return Ticket</DialogTitle>
+            <DialogDescription>
+              Return <strong>{confirmReturn?.number}</strong> to the technician for revision?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmReturn(null)}>Cancel</Button>
+            <Button
+              onClick={handleConfirmReturn}
+              disabled={returnTicket.isPending}
+            >
+              {returnTicket.isPending ? 'Returning…' : 'Return'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

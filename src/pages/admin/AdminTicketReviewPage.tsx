@@ -21,7 +21,6 @@ import {
   type AdminLineEdits,
 } from '@/hooks/useTickets'
 import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
-import { exportTicketXlsx } from '@/lib/exportTicketXlsx'
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
@@ -128,7 +127,6 @@ export function AdminTicketReviewPage() {
   const [unfinalizeOpen, setUnfinalizeOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
-  const [exportingXlsx, setExportingXlsx] = useState(false)
 
   useEffect(() => {
     if (!t) return
@@ -260,16 +258,6 @@ export function AdminTicketReviewPage() {
       await logExport.mutateAsync({ ticketId: t!.id, format: 'pdf' })
     } finally {
       setExportingPdf(false)
-    }
-  }
-
-  async function handleExportXlsx() {
-    setExportingXlsx(true)
-    try {
-      exportTicketXlsx(t as unknown as ExportTicketData)
-      await logExport.mutateAsync({ ticketId: t!.id, format: 'xlsx' })
-    } finally {
-      setExportingXlsx(false)
     }
   }
 
@@ -595,18 +583,6 @@ export function AdminTicketReviewPage() {
                 ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 : <FileDown className="h-3.5 w-3.5" />}
               PDF
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              disabled={exportingXlsx}
-              onClick={handleExportXlsx}
-            >
-              {exportingXlsx
-                ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                : <FileDown className="h-3.5 w-3.5" />}
-              XLSX
             </Button>
           </>
         )}
