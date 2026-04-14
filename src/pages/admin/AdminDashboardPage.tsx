@@ -1,10 +1,15 @@
 import { useNavigate } from 'react-router-dom'
-import { ClipboardList, CheckCircle, Clock, FileText, ChevronRight } from 'lucide-react'
+import { ClipboardList, CheckCircle, Clock, FileText, ChevronRight, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { useTicketStats, useAllTickets } from '@/hooks/useTickets'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 
 function StatCard({
   title,
@@ -38,17 +43,91 @@ function StatCard({
 
 export function AdminDashboardPage() {
   const navigate = useNavigate()
-  const { data: stats, isLoading: statsLoading } = useTicketStats()
-  const { data: pending = [], isLoading: pendingLoading } = useAllTickets('submitted')
+  const { profile } = useAuth()
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useTicketStats()
+  const { data: pending = [], isLoading: pendingLoading, refetch: refetchPending } = useAllTickets('submitted')
+
+  const [hasUpdates, setHasUpdates] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const autoRefreshRef = useRef(false)
+
+  function handleAutoRefreshChange(val: boolean) {
+    setAutoRefresh(val)
+    autoRefreshRef.current = val
+    // If turning on while updates are pending, refresh immediately
+    if (val && hasUpdates) {
+      handleRefresh()
+    }
+  }
+
+  function handleRefresh() {
+    refetchStats()
+    refetchPending()
+    setHasUpdates(false)
+  }
+
+  // Subscribe to all ticket changes in this company
+  useEffect(() => {
+    if (!profile?.company_id) return
+    const channel = supabase
+      .channel(`dashboard-tickets:${profile.company_id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+          filter: `company_id=eq.${profile.company_id}`,
+        },
+        () => {
+          if (autoRefreshRef.current) {
+            refetchStats()
+            refetchPending()
+          } else {
+            setHasUpdates(true)
+          }
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.company_id])
 
   const valueOrDash = (n?: number) => statsLoading ? '—' : (n ?? 0).toString()
 
   return (
     <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Overview of all work tickets</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm">Overview of all work tickets</p>
+        </div>
+        <div className="flex items-center gap-2 pt-1 shrink-0">
+          <Switch
+            id="live-updates"
+            checked={autoRefresh}
+            onCheckedChange={handleAutoRefreshChange}
+          />
+          <Label htmlFor="live-updates" className="text-sm text-muted-foreground cursor-pointer select-none">
+            Live updates
+          </Label>
+        </div>
       </div>
+
+      {/* New activity banner */}
+      {hasUpdates && (
+        <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            Ticket activity detected — your dashboard may be out of date.
+          </p>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1.5 text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline shrink-0 ml-4"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard

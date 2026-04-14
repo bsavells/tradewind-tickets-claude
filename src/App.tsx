@@ -19,6 +19,7 @@ import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage'
 import { AdminClassificationsPage } from '@/pages/admin/AdminClassificationsPage'
 import { AdminVehiclesPage } from '@/pages/admin/AdminVehiclesPage'
+import { NotificationsPage } from '@/pages/NotificationsPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -48,6 +49,9 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppShell />}>
                 <Route path="/" element={<RootRedirect />} />
+
+                {/* Shared routes */}
+                <Route path="/notifications" element={<NotificationsPage />} />
 
                 {/* User routes */}
                 <Route path="/tickets" element={<MyTicketsPage />} />

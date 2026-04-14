@@ -23,7 +23,7 @@ export interface NotificationPref {
   in_app_enabled: boolean
 }
 
-// ── Fetch all notifications for current user ──────────────────────────────────
+// ── Fetch recent notifications for current user (bell dropdown) ───────────────
 export function useNotifications() {
   const { profile } = useAuth()
   return useQuery({
@@ -37,6 +37,27 @@ export function useNotifications() {
         .limit(50)
       if (error) throw error
       return data as Notification[]
+    },
+    enabled: !!profile,
+  })
+}
+
+// ── All notifications paginated (for history page) ────────────────────────────
+const HISTORY_PAGE_SIZE = 50
+
+export function useAllNotifications(page = 0) {
+  const { profile } = useAuth()
+  return useQuery({
+    queryKey: ['notifications-history', profile?.id, page],
+    queryFn: async () => {
+      const { data, error, count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact' })
+        .eq('recipient_id', profile!.id)
+        .order('created_at', { ascending: false })
+        .range(page * HISTORY_PAGE_SIZE, (page + 1) * HISTORY_PAGE_SIZE - 1)
+      if (error) throw error
+      return { notifications: data as Notification[], total: count ?? 0 }
     },
     enabled: !!profile,
   })
@@ -68,6 +89,7 @@ export function useUnreadNotificationCount() {
         () => {
           qc.invalidateQueries({ queryKey: ['notifications', profile.id] })
           qc.invalidateQueries({ queryKey: ['notifications-count', profile.id] })
+          qc.invalidateQueries({ queryKey: ['notifications-history', profile.id] })
         }
       )
       .subscribe()
@@ -109,6 +131,28 @@ export function useMarkNotificationsRead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications', profile?.id] })
       qc.invalidateQueries({ queryKey: ['notifications-count', profile?.id] })
+      qc.invalidateQueries({ queryKey: ['notifications-history', profile?.id] })
+    },
+  })
+}
+
+// ── Delete read notifications ─────────────────────────────────────────────────
+export function useDeleteReadNotifications() {
+  const qc = useQueryClient()
+  const { profile } = useAuth()
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('recipient_id', profile!.id)
+        .eq('read', true)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifications', profile?.id] })
+      qc.invalidateQueries({ queryKey: ['notifications-count', profile?.id] })
+      qc.invalidateQueries({ queryKey: ['notifications-history', profile?.id] })
     },
   })
 }

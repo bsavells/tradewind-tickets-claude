@@ -2,8 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { Bell } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead } from '@/hooks/useNotifications'
-import { useNavigate } from 'react-router-dom'
+import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead, useDeleteReadNotifications } from '@/hooks/useNotifications'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
 // anchor="left"  → dropdown's left edge aligns with bell → opens RIGHTWARD (use in sidebar)
@@ -24,6 +24,9 @@ export function NotificationBell({
   const { data: unreadCount = 0 } = useUnreadNotificationCount()
   const { data: notifications = [] } = useNotifications()
   const markRead = useMarkNotificationsRead()
+  const deleteRead = useDeleteReadNotifications()
+
+  const hasRead = notifications.some(n => n.read)
 
   // Close on click outside
   useEffect(() => {
@@ -74,14 +77,25 @@ export function NotificationBell({
         )}>
           <div className="flex items-center justify-between border-b px-4 py-3">
             <p className="text-sm font-semibold">Notifications</p>
-            {notifications.some(n => !n.read) && (
-              <button
-                className="text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => markRead.mutate(undefined)}
-              >
-                Mark all read
-              </button>
-            )}
+            <div className="flex items-center gap-3">
+              {hasRead && (
+                <button
+                  className="text-xs text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteRead.mutate()}
+                  title="Delete all read notifications"
+                >
+                  Clear read
+                </button>
+              )}
+              {notifications.some(n => !n.read) && (
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => markRead.mutate(undefined)}
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="max-h-80 overflow-y-auto">
@@ -117,6 +131,16 @@ export function NotificationBell({
                 </button>
               ))
             )}
+          </div>
+
+          <div className="border-t px-4 py-2">
+            <Link
+              to="/notifications"
+              onClick={() => setOpen(false)}
+              className="text-xs text-primary hover:underline"
+            >
+              View full history →
+            </Link>
           </div>
         </div>
       )}

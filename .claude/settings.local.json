@@ -6,7 +6,12 @@
       "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__deploy_edge_function",
       "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__apply_migration",
       "Bash(npm run:*)",
-      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__execute_sql"
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__execute_sql",
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__get_edge_function",
+      "Bash(npx tsc:*)",
+      "Bash(python -c ':*)",
+      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_deployment_build_logs",
+      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_runtime_logs"
     ]
   }
 }
