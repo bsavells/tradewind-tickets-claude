@@ -294,7 +294,7 @@ export function TicketFormPage() {
     if (!profile || !classifications.length) return
     const current = getValues('labor')
     if (current.length === 0) {
-      labor.append(defaultLaborRow())
+      labor.append(defaultLaborRow(), { shouldFocus: false })
     }
   }, [profile, classifications]) // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -176,7 +176,7 @@ export function AdminTicketReviewPage() {
   const returnRequested = t.status === 'submitted' && auditLog.some(
     e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
   )
-  const canEdit = isWritableAdmin && !isFinalized
+  const canEdit = isWritableAdmin && !isFinalized && t.status !== 'draft'
   const canFinalize = isWritableAdmin && (t.status === 'submitted')
   const canReturn = isWritableAdmin && t.status === 'submitted'
   const canUnfinalize = isWritableAdmin && isFinalized

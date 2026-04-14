@@ -294,7 +294,7 @@ export function AdminTicketsPage() {
                         Delete
                       </Button>
                     )}
-                    {t.status !== 'finalized' && t.status !== 'returned' && isWritableAdmin && Number(t.grand_total) > 0 && (
+                    {t.status !== 'finalized' && t.status !== 'returned' && t.status !== 'draft' && isWritableAdmin && Number(t.grand_total) > 0 && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -305,7 +305,7 @@ export function AdminTicketsPage() {
                         Finalize
                       </Button>
                     )}
-                    {t.status !== 'finalized' && t.status !== 'returned' && isWritableAdmin && Number(t.grand_total) === 0 && (
+                    {t.status !== 'finalized' && t.status !== 'returned' && t.status !== 'draft' && isWritableAdmin && Number(t.grand_total) === 0 && (
                       <Button
                         size="sm"
                         variant="outline"
