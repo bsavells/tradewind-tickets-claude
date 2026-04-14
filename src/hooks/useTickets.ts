@@ -76,6 +76,8 @@ export function useMyTickets() {
       return data as (Ticket & { customers: { name: string }; ticket_audit_log: { action: string; occurred_at: string }[] })[]
     },
     enabled: !!profile,
+    refetchInterval: 2 * 60 * 1000, // silent 2-min poll catches any missed Realtime events
+    refetchIntervalInBackground: false, // only poll when tab is active
   })
 }
 
