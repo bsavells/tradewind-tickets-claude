@@ -6,7 +6,9 @@ import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead 
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
-export function NotificationBell() {
+// anchor="left"  → dropdown's left edge aligns with bell → opens RIGHTWARD (use in sidebar)
+// anchor="right" → dropdown's right edge aligns with bell → opens LEFTWARD (use in topbar)
+export function NotificationBell({ anchor = 'right' }: { anchor?: 'left' | 'right' }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -58,7 +60,10 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-9 z-50 w-80 rounded-lg border bg-popover shadow-lg">
+        <div className={cn(
+          'absolute top-9 z-50 w-80 rounded-lg border bg-popover shadow-lg',
+          anchor === 'left' ? 'left-0' : 'right-0'
+        )}>
           <div className="flex items-center justify-between border-b px-4 py-3">
             <p className="text-sm font-semibold">Notifications</p>
             {notifications.some(n => !n.read) && (

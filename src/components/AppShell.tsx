@@ -93,7 +93,7 @@ export function AppShell() {
               {profile?.role}{profile?.is_readonly_admin ? ' (read-only)' : ''}
             </p>
           </div>
-          <NotificationBell />
+          <NotificationBell anchor="left" />
         </div>
         <Button
           variant="ghost"
