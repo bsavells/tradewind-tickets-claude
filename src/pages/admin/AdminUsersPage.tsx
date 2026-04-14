@@ -16,6 +16,7 @@ import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useSendPas
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
 import { useAuth } from '@/contexts/AuthContext'
+import { useNotificationPrefs, useUpsertNotificationPref } from '@/hooks/useNotifications'
 import type { Database } from '@/lib/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -32,6 +33,13 @@ const editSchema = z.object({
 })
 type EditForm = z.infer<typeof editSchema>
 
+// ── Notification preference rows shown in EditUserDialog ──────────────────────
+const NOTIF_PREFS = [
+  { key: 'on_submit', label: 'New ticket submitted', hint: 'Admins receive this' },
+  { key: 'on_return', label: 'Ticket returned for revision', hint: 'Users receive this' },
+  { key: 'on_finalize', label: 'Ticket finalized', hint: 'Users receive this' },
+]
+
 function EditUserDialog({
   open, onClose, user,
 }: {
@@ -44,6 +52,8 @@ function EditUserDialog({
   const { data: classifications = [] } = useClassifications()
   const { data: vehicles = [] } = useVehicles()
   const [resetSent, setResetSent] = useState(false)
+  const { data: notifPrefs = {} } = useNotificationPrefs(user.id)
+  const upsertPref = useUpsertNotificationPref()
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
@@ -181,6 +191,45 @@ function EditUserDialog({
               <KeyRound className="h-3.5 w-3.5" />
               {resetSent ? 'Sent!' : sendReset.isPending ? 'Sending…' : 'Send Reset'}
             </Button>
+          </div>
+
+          {/* Notification preferences */}
+          <div className="rounded-md border p-3 space-y-3">
+            <div>
+              <p className="text-sm font-medium">Notification Preferences</p>
+              <p className="text-xs text-muted-foreground">
+                Defaults to opted-in. Toggle off to disable for this user.
+              </p>
+            </div>
+            <div className="space-y-2">
+              {NOTIF_PREFS.map(({ key, label, hint }) => {
+                const pref = notifPrefs[key]
+                const inApp = pref?.in_app_enabled ?? true
+                const email = pref?.email_enabled ?? true
+                return (
+                  <div key={key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
+                    <div>
+                      <p className="text-xs font-medium">{label}</p>
+                      <p className="text-xs text-muted-foreground">{hint}</p>
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[10px] text-muted-foreground">In-app</span>
+                      <Switch
+                        checked={inApp}
+                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: v, email_enabled: email })}
+                      />
+                    </div>
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[10px] text-muted-foreground">Email</span>
+                      <Switch
+                        checked={email}
+                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: inApp, email_enabled: v })}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
           <DialogFooter>

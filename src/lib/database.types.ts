@@ -175,6 +175,64 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          id: string
+          company_id: string
+          recipient_id: string
+          ticket_id: string | null
+          kind: string
+          title: string
+          body: string | null
+          read: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          recipient_id: string
+          ticket_id?: string | null
+          kind: string
+          title: string
+          body?: string | null
+          read?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          recipient_id?: string
+          ticket_id?: string | null
+          kind?: string
+          title?: string
+          body?: string | null
+          read?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active: boolean

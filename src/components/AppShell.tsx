@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { NotificationBell } from '@/components/NotificationBell'
 
 function NavItem({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string }) {
   return (
@@ -82,14 +83,17 @@ export function AppShell() {
 
       {/* User */}
       <div className="border-t p-3 space-y-1">
-        <div className="px-3 py-2">
-          <p className="text-sm font-medium truncate">
-            {profile?.first_name} {profile?.last_name}
-          </p>
-          <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
-          <p className="text-xs text-muted-foreground capitalize mt-0.5">
-            {profile?.role}{profile?.is_readonly_admin ? ' (read-only)' : ''}
-          </p>
+        <div className="flex items-start justify-between px-3 py-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium truncate">
+              {profile?.first_name} {profile?.last_name}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+            <p className="text-xs text-muted-foreground capitalize mt-0.5">
+              {profile?.role}{profile?.is_readonly_admin ? ' (read-only)' : ''}
+            </p>
+          </div>
+          <NotificationBell />
         </div>
         <Button
           variant="ghost"
@@ -134,10 +138,11 @@ export function AppShell() {
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1">
             <Wind className="h-5 w-5 text-primary" />
             <span className="font-semibold text-sm">Tradewind</span>
           </div>
+          <NotificationBell />
         </header>
 
         <main className="flex-1 overflow-y-auto">

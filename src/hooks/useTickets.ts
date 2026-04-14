@@ -229,6 +229,11 @@ export function useSubmitTicket() {
         actor_name: `${profile!.first_name} ${profile!.last_name}`,
         action: 'submitted',
       })
+
+      // Fire-and-forget: notify admins
+      supabase.functions.invoke('notify-ticket-event', {
+        body: { ticket_id: ticketId, event_kind: 'ticket_submitted' },
+      }).catch(console.error)
     },
     onSuccess: (_data, ticketId) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
@@ -342,6 +347,11 @@ export function useFinalizeTicket() {
         actor_name: `${profile!.first_name} ${profile!.last_name}`,
         action: 'finalized',
       })
+
+      // Fire-and-forget: notify ticket creator
+      supabase.functions.invoke('notify-ticket-event', {
+        body: { ticket_id: ticketId, event_kind: 'ticket_finalized' },
+      }).catch(console.error)
     },
     onSuccess: (_data, ticketId) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
@@ -404,6 +414,11 @@ export function useReturnTicket() {
         action: 'returned',
         note: note ?? null,
       })
+
+      // Fire-and-forget: notify ticket creator
+      supabase.functions.invoke('notify-ticket-event', {
+        body: { ticket_id: ticketId, event_kind: 'ticket_returned' },
+      }).catch(console.error)
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
