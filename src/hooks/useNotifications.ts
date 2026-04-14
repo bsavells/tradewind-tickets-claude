@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useId } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -46,12 +46,17 @@ export function useNotifications() {
 export function useUnreadNotificationCount() {
   const { profile } = useAuth()
   const qc = useQueryClient()
+  const instanceId = useId()
 
-  // Subscribe to realtime inserts on the notifications table
+  // Subscribe to realtime inserts on the notifications table.
+  // instanceId makes the channel name unique per hook instance so that
+  // multiple NotificationBell mounts (desktop sidebar + mobile topbar)
+  // don't share the same channel and trigger the "cannot add callbacks
+  // after subscribe()" error.
   useEffect(() => {
     if (!profile) return
     const channel = supabase
-      .channel(`notifications:${profile.id}`)
+      .channel(`notifications:${profile.id}:${instanceId}`)
       .on(
         'postgres_changes',
         {
