@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Bell } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead, useDismissReadNotifications } from '@/hooks/useNotifications'
+import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead } from '@/hooks/useNotifications'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -24,9 +24,6 @@ export function NotificationBell({
   const { data: unreadCount = 0 } = useUnreadNotificationCount()
   const { data: notifications = [] } = useNotifications()
   const markRead = useMarkNotificationsRead()
-  const dismissRead = useDismissReadNotifications()
-
-  const hasRead = notifications.some(n => n.read)
 
   // Close on click outside
   useEffect(() => {
@@ -74,25 +71,14 @@ export function NotificationBell({
         )}>
           <div className="flex items-center justify-between border-b px-4 py-3">
             <p className="text-sm font-semibold">Notifications</p>
-            <div className="flex items-center gap-3">
-              {hasRead && (
-                <button
-                  className="text-xs text-muted-foreground hover:text-destructive"
-                  onClick={() => dismissRead.mutate()}
-                  title="Remove read notifications from this list"
-                >
-                  Clear read
-                </button>
-              )}
-              {notifications.some(n => !n.read) && (
-                <button
-                  className="text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => markRead.mutate(undefined)}
-                >
-                  Mark all read
-                </button>
-              )}
-            </div>
+            {notifications.length > 0 && (
+              <button
+                className="text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => markRead.mutate(undefined)}
+              >
+                Mark all read
+              </button>
+            )}
           </div>
 
           <div className="max-h-80 overflow-y-auto">

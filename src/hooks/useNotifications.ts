@@ -35,6 +35,7 @@ export function useNotifications() {
         .select('*')
         .eq('recipient_id', profile!.id)
         .eq('dismissed', false)
+        .eq('read', false)
         .order('created_at', { ascending: false })
         .limit(10)
       if (error) throw error
