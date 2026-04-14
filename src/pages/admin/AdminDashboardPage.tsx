@@ -101,6 +101,13 @@ export function AdminDashboardPage() {
                 const customerName = (t as unknown as { customers: { name: string } }).customers?.name ?? '—'
                 const tech = (t as unknown as { profiles: { first_name: string; last_name: string } | null }).profiles
                 const techName = tech ? `${tech.first_name} ${tech.last_name}` : '—'
+                const auditLog = (t as unknown as { ticket_audit_log: { action: string; occurred_at: string }[] }).ticket_audit_log ?? []
+                const lastSubmittedTime = auditLog
+                  .filter(e => e.action === 'submitted')
+                  .reduce((max, e) => Math.max(max, e.occurred_at ? new Date(e.occurred_at).getTime() : 0), 0)
+                const returnRequested = t.status === 'submitted' && auditLog.some(
+                  e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
+                )
                 return (
                   <div
                     key={t.id}
@@ -113,6 +120,9 @@ export function AdminDashboardPage() {
                         <Badge variant={statusVariant(t.status)} className="text-xs h-4 px-1.5">
                           {statusLabel(t.status)}
                         </Badge>
+                        {returnRequested && (
+                          <Badge variant="warning" className="text-xs h-4 px-1.5">Return Requested</Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5 truncate">
                         {customerName} · {techName} · {format(new Date(t.work_date), 'MMM d, yyyy')}
