@@ -100,6 +100,8 @@ export function useAllTickets(statusFilter?: TicketStatus) {
       })[]
     },
     enabled: !!profile,
+    refetchInterval: 2 * 60 * 1000,
+    refetchIntervalInBackground: false,
   })
 }
 
@@ -466,6 +468,8 @@ export function useTicketStats() {
       }
     },
     enabled: !!profile,
+    refetchInterval: 2 * 60 * 1000,
+    refetchIntervalInBackground: false,
   })
 }
 
