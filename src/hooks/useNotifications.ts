@@ -13,6 +13,7 @@ export interface Notification {
   title: string
   body: string | null
   read: boolean
+  dismissed: boolean
   created_at: string
 }
 
@@ -23,7 +24,7 @@ export interface NotificationPref {
   in_app_enabled: boolean
 }
 
-// ── Fetch recent notifications for current user (bell dropdown) ───────────────
+// ── Fetch recent non-dismissed notifications for bell dropdown ────────────────
 export function useNotifications() {
   const { profile } = useAuth()
   return useQuery({
@@ -33,8 +34,9 @@ export function useNotifications() {
         .from('notifications')
         .select('*')
         .eq('recipient_id', profile!.id)
+        .eq('dismissed', false)
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(10)
       if (error) throw error
       return data as Notification[]
     },
@@ -42,7 +44,7 @@ export function useNotifications() {
   })
 }
 
-// ── All notifications paginated (for history page) ────────────────────────────
+// ── All notifications paginated (for history page — includes dismissed) ───────
 const HISTORY_PAGE_SIZE = 50
 
 export function useAllNotifications(page = 0) {
@@ -69,11 +71,6 @@ export function useUnreadNotificationCount() {
   const qc = useQueryClient()
   const instanceId = useId()
 
-  // Subscribe to realtime inserts on the notifications table.
-  // instanceId makes the channel name unique per hook instance so that
-  // multiple NotificationBell mounts (desktop sidebar + mobile topbar)
-  // don't share the same channel and trigger the "cannot add callbacks
-  // after subscribe()" error.
   useEffect(() => {
     if (!profile) return
     const channel = supabase
@@ -108,7 +105,7 @@ export function useUnreadNotificationCount() {
       return count ?? 0
     },
     enabled: !!profile,
-    refetchInterval: 60_000, // fallback poll every minute
+    refetchInterval: 60_000,
   })
 }
 
@@ -136,23 +133,22 @@ export function useMarkNotificationsRead() {
   })
 }
 
-// ── Delete read notifications ─────────────────────────────────────────────────
-export function useDeleteReadNotifications() {
+// ── Dismiss read notifications from popup (keeps them in history) ─────────────
+export function useDismissReadNotifications() {
   const qc = useQueryClient()
   const { profile } = useAuth()
   return useMutation({
     mutationFn: async () => {
       const { error } = await supabase
         .from('notifications')
-        .delete()
+        .update({ dismissed: true })
         .eq('recipient_id', profile!.id)
         .eq('read', true)
+        .eq('dismissed', false)
       if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications', profile?.id] })
-      qc.invalidateQueries({ queryKey: ['notifications-count', profile?.id] })
-      qc.invalidateQueries({ queryKey: ['notifications-history', profile?.id] })
     },
   })
 }
@@ -167,7 +163,6 @@ export function useNotificationPrefs(userId: string | undefined) {
         .select('*')
         .eq('user_id', userId!)
       if (error) throw error
-      // Normalize to key→pref map
       const map: Record<string, { email_enabled: boolean; in_app_enabled: boolean }> = {}
       for (const row of data as NotificationPref[]) {
         map[row.key] = { email_enabled: row.email_enabled, in_app_enabled: row.in_app_enabled }

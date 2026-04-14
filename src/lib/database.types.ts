@@ -185,6 +185,7 @@ export type Database = {
           title: string
           body: string | null
           read: boolean
+          dismissed: boolean
           created_at: string
         }
         Insert: {
@@ -196,6 +197,7 @@ export type Database = {
           title: string
           body?: string | null
           read?: boolean
+          dismissed?: boolean
           created_at?: string
         }
         Update: {
@@ -207,6 +209,7 @@ export type Database = {
           title?: string
           body?: string | null
           read?: boolean
+          dismissed?: boolean
           created_at?: string
         }
         Relationships: [

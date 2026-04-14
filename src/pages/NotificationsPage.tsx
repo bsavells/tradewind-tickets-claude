@@ -4,7 +4,7 @@ import { Bell, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useAllNotifications, useMarkNotificationsRead, useDeleteReadNotifications, type Notification } from '@/hooks/useNotifications'
+import { useAllNotifications, useMarkNotificationsRead, type Notification } from '@/hooks/useNotifications'
 import { useAuth } from '@/contexts/AuthContext'
 
 function groupByDate(notifications: Notification[]) {
@@ -27,7 +27,6 @@ export function NotificationsPage() {
   const [page, setPage] = useState(0)
   const { data, isLoading } = useAllNotifications(page)
   const markRead = useMarkNotificationsRead()
-  const deleteRead = useDeleteReadNotifications()
   const navigate = useNavigate()
   const { isAdmin } = useAuth()
 
@@ -35,7 +34,6 @@ export function NotificationsPage() {
   const total = data?.total ?? 0
   const pageSize = 50
   const totalPages = Math.ceil(total / pageSize)
-  const hasRead = notifications.some(n => n.read)
   const hasUnread = notifications.some(n => !n.read)
 
   const groups = groupByDate(notifications)
@@ -65,17 +63,6 @@ export function NotificationsPage() {
               disabled={markRead.isPending}
             >
               Mark all read
-            </Button>
-          )}
-          {hasRead && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => deleteRead.mutate()}
-              disabled={deleteRead.isPending}
-              className="text-destructive hover:text-destructive"
-            >
-              Clear read
             </Button>
           )}
         </div>

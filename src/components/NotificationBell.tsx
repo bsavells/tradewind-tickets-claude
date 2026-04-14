@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Bell } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead, useDeleteReadNotifications } from '@/hooks/useNotifications'
+import { useNotifications, useUnreadNotificationCount, useMarkNotificationsRead, useDismissReadNotifications } from '@/hooks/useNotifications'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -24,7 +24,7 @@ export function NotificationBell({
   const { data: unreadCount = 0 } = useUnreadNotificationCount()
   const { data: notifications = [] } = useNotifications()
   const markRead = useMarkNotificationsRead()
-  const deleteRead = useDeleteReadNotifications()
+  const dismissRead = useDismissReadNotifications()
 
   const hasRead = notifications.some(n => n.read)
 
@@ -81,8 +81,8 @@ export function NotificationBell({
               {hasRead && (
                 <button
                   className="text-xs text-muted-foreground hover:text-destructive"
-                  onClick={() => deleteRead.mutate()}
-                  title="Delete all read notifications"
+                  onClick={() => dismissRead.mutate()}
+                  title="Remove read notifications from this list"
                 >
                   Clear read
                 </button>
