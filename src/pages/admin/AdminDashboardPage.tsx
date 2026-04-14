@@ -49,21 +49,28 @@ export function AdminDashboardPage() {
 
   const [hasUpdates, setHasUpdates] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(false)
+
+  // Refs so the Realtime callback always sees the latest values
+  // without needing to re-subscribe every render
   const autoRefreshRef = useRef(false)
+  const refetchStatsRef = useRef(refetchStats)
+  const refetchPendingRef = useRef(refetchPending)
+  refetchStatsRef.current = refetchStats
+  refetchPendingRef.current = refetchPending
+
+  function handleRefresh() {
+    refetchStatsRef.current()
+    refetchPendingRef.current()
+    setHasUpdates(false)
+  }
 
   function handleAutoRefreshChange(val: boolean) {
     setAutoRefresh(val)
     autoRefreshRef.current = val
-    // If turning on while updates are pending, refresh immediately
-    if (val && hasUpdates) {
+    if (val) {
+      // Always do an immediate refresh when enabling live updates
       handleRefresh()
     }
-  }
-
-  function handleRefresh() {
-    refetchStats()
-    refetchPending()
-    setHasUpdates(false)
   }
 
   // Subscribe to all ticket changes in this company
@@ -81,8 +88,8 @@ export function AdminDashboardPage() {
         },
         () => {
           if (autoRefreshRef.current) {
-            refetchStats()
-            refetchPending()
+            refetchStatsRef.current()
+            refetchPendingRef.current()
           } else {
             setHasUpdates(true)
           }
