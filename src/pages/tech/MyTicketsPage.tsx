@@ -15,21 +15,32 @@ import type { Database } from '@/lib/database.types'
 
 type Ticket = Database['public']['Tables']['tickets']['Row']
 
+type AuditEntry = { action: string; occurred_at: string }
+
 function TicketRow({
   ticket,
   customerName,
+  auditLog,
   onSelect,
   onSubmit,
   onDelete,
 }: {
   ticket: Ticket
   customerName: string
+  auditLog: AuditEntry[]
   onSelect: () => void
   onSubmit: (e: React.MouseEvent) => void
   onDelete: (e: React.MouseEvent) => void
 }) {
   const canSubmit = ticket.status === 'draft' || ticket.status === 'returned'
   const canDelete = ticket.status === 'draft'
+
+  const lastSubmittedTime = auditLog
+    .filter(e => e.action === 'submitted')
+    .reduce((max, e) => Math.max(max, e.occurred_at ? new Date(e.occurred_at).getTime() : 0), 0)
+  const returnRequested = ticket.status === 'submitted' && auditLog.some(
+    e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
+  )
 
   return (
     <div
@@ -43,6 +54,9 @@ function TicketRow({
           <Badge variant={statusVariant(ticket.status)} className="text-xs h-4 px-1.5">
             {statusLabel(ticket.status)}
           </Badge>
+          {returnRequested && (
+            <Badge variant="warning" className="text-xs h-4 px-1.5">Return Requested</Badge>
+          )}
           {ticket.has_post_finalize_changes && (
             <Badge variant="warning" className="text-xs h-4 px-1.5">Updated</Badge>
           )}
@@ -156,6 +170,7 @@ export function MyTicketsPage() {
                 key={t.id}
                 ticket={t}
                 customerName={(t as unknown as { customers: { name: string } }).customers?.name ?? '—'}
+                auditLog={(t as unknown as { ticket_audit_log: AuditEntry[] }).ticket_audit_log ?? []}
                 onSelect={() => navigate(`/tickets/${t.id}`)}
                 onSubmit={e => handleSubmit(e, t.id)}
                 onDelete={e => handleDeleteClick(e, t)}

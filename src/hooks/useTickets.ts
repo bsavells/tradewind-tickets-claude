@@ -69,11 +69,11 @@ export function useMyTickets() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tickets')
-        .select('*, customers(name)')
+        .select('*, customers(name), ticket_audit_log(action, occurred_at)')
         .eq('created_by', profile!.id)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as (Ticket & { customers: { name: string } })[]
+      return data as (Ticket & { customers: { name: string }; ticket_audit_log: { action: string; occurred_at: string }[] })[]
     },
     enabled: !!profile,
   })
