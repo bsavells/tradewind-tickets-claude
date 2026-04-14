@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, FileText, ChevronRight, Send, Trash2, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { useMyTickets, useSubmitTicket, useDeleteTicket } from '@/hooks/useTickets'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
@@ -104,6 +105,52 @@ export function MyTicketsPage() {
   const deleteTicket = useDeleteTicket()
   const [, setSubmitting] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<Ticket | null>(null)
+  const [hasUpdates, setHasUpdates] = useState(false)
+
+  const refetchRef = useRef(refetch)
+  refetchRef.current = refetch
+
+  function handleRefresh() {
+    refetchRef.current()
+    setHasUpdates(false)
+  }
+
+  useEffect(() => {
+    if (!profile?.id) return
+
+    function onEvent() {
+      refetchRef.current()
+    }
+
+    // Notifications fire when an admin finalizes or returns a ticket
+    const notifChannel = supabase
+      .channel(`mytickets-notif:${profile.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `recipient_id=eq.${profile.id}`,
+      }, onEvent)
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') setHasUpdates(true)
+      })
+
+    // Direct ticket changes (requires tickets table in Realtime publication)
+    const ticketChannel = supabase
+      .channel(`mytickets-tickets:${profile.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tickets',
+        filter: `created_by=eq.${profile.id}`,
+      }, onEvent)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(notifChannel)
+      supabase.removeChannel(ticketChannel)
+    }
+  }, [profile?.id])
 
   async function handleSubmit(e: React.MouseEvent, ticketId: string) {
     e.stopPropagation()
@@ -142,7 +189,7 @@ export function MyTicketsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching} title="Refresh">
+          <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isFetching} title="Refresh">
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           </Button>
           <Button className="gap-2" onClick={() => navigate('/tickets/new')}>
@@ -151,6 +198,21 @@ export function MyTicketsPage() {
           </Button>
         </div>
       </div>
+
+      {hasUpdates && (
+        <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-2.5">
+          <p className="text-sm text-blue-800 dark:text-blue-200">
+            Ticket activity detected — your list may be out of date.
+          </p>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1.5 text-sm font-medium text-blue-700 dark:text-blue-300 hover:underline shrink-0 ml-4"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+        </div>
+      )}
 
       <Card className="overflow-hidden">
         {isLoading ? (
