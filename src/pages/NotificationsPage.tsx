@@ -4,11 +4,11 @@ import { Bell, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatDistanceToNow, format, isToday, isYesterday } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { useAllNotifications, useMarkNotificationsRead, useDeleteReadNotifications } from '@/hooks/useNotifications'
+import { useAllNotifications, useMarkNotificationsRead, useDeleteReadNotifications, type Notification } from '@/hooks/useNotifications'
 import { useAuth } from '@/contexts/AuthContext'
 
-function groupByDate(notifications: { created_at: string }[]) {
-  const groups: { label: string; items: typeof notifications }[] = []
+function groupByDate(notifications: Notification[]) {
+  const groups: { label: string; items: Notification[] }[] = []
   const seen = new Map<string, number>()
 
   for (const n of notifications) {
@@ -104,16 +104,16 @@ export function NotificationsPage() {
                 const isLast = gi === groups.length - 1 && ni === group.items.length - 1
                 return (
                   <button
-                    key={(n as { id: string }).id}
-                    onClick={() => handleClick((n as { ticket_id: string | null }).ticket_id)}
+                    key={n.id}
+                    onClick={() => handleClick(n.ticket_id)}
                     className={cn(
                       'w-full text-left px-4 py-3.5 transition-colors hover:bg-accent',
                       !isLast && 'border-b',
-                      !(n as { read: boolean }).read && 'bg-blue-50 dark:bg-blue-950/20'
+                      !n.read && 'bg-blue-50 dark:bg-blue-950/20'
                     )}
                   >
                     <div className="flex items-start gap-3">
-                      {!(n as { read: boolean }).read ? (
+                      {!n.read ? (
                         <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                       ) : (
                         <span className="mt-1.5 h-2 w-2 shrink-0" />
@@ -121,17 +121,17 @@ export function NotificationsPage() {
                       <div className="min-w-0 flex-1">
                         <p className={cn(
                           'text-sm leading-snug',
-                          !(n as { read: boolean }).read ? 'font-semibold' : 'font-medium'
+                          !n.read ? 'font-semibold' : 'font-medium'
                         )}>
-                          {(n as { title: string }).title}
+                          {n.title}
                         </p>
-                        {(n as { body: string | null }).body && (
+                        {n.body && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {(n as { body: string }).body}
+                            {n.body}
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-1">
-                          {formatDistanceToNow(new Date((n as { created_at: string }).created_at), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
                         </p>
                       </div>
                     </div>
