@@ -73,31 +73,49 @@ export function AdminDashboardPage() {
     }
   }
 
-  // Subscribe to all ticket changes in this company
+  // Drive live updates off the notifications table, which is already in the
+  // Realtime publication. New admin notifications (ticket_submitted,
+  // ticket_return_requested) are the exact events that change the pending list.
+  // Also subscribe to the tickets table directly for any admin-side actions
+  // (finalize, return) — this requires the tickets table to be in the
+  // Realtime publication: ALTER PUBLICATION supabase_realtime ADD TABLE tickets;
   useEffect(() => {
-    if (!profile?.company_id) return
-    const channel = supabase
-      .channel(`dashboard-tickets:${profile.company_id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tickets',
-          filter: `company_id=eq.${profile.company_id}`,
-        },
-        () => {
-          if (autoRefreshRef.current) {
-            refetchStatsRef.current()
-            refetchPendingRef.current()
-          } else {
-            setHasUpdates(true)
-          }
-        }
-      )
+    if (!profile?.id || !profile?.company_id) return
+
+    function onEvent() {
+      if (autoRefreshRef.current) {
+        refetchStatsRef.current()
+        refetchPendingRef.current()
+      } else {
+        setHasUpdates(true)
+      }
+    }
+
+    const notifChannel = supabase
+      .channel(`dashboard-notif:${profile.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `recipient_id=eq.${profile.id}`,
+      }, onEvent)
       .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [profile?.company_id])
+
+    const ticketChannel = supabase
+      .channel(`dashboard-tickets:${profile.company_id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'tickets',
+        filter: `company_id=eq.${profile.company_id}`,
+      }, onEvent)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(notifChannel)
+      supabase.removeChannel(ticketChannel)
+    }
+  }, [profile?.id, profile?.company_id])
 
   const valueOrDash = (n?: number) => statsLoading ? '—' : (n ?? 0).toString()
 
