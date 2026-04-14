@@ -38,9 +38,10 @@ export function NotificationsPage() {
 
   const groups = groupByDate(notifications)
 
-  function handleClick(ticketId: string | null) {
-    if (ticketId) {
-      navigate(isAdmin ? `/admin/tickets/${ticketId}` : `/tickets/${ticketId}`)
+  function handleClick(n: Notification) {
+    if (!n.read) markRead.mutate([n.id])
+    if (n.ticket_id) {
+      navigate(isAdmin ? `/admin/tickets/${n.ticket_id}` : `/tickets/${n.ticket_id}`)
     }
   }
 
@@ -92,7 +93,7 @@ export function NotificationsPage() {
                 return (
                   <button
                     key={n.id}
-                    onClick={() => handleClick(n.ticket_id)}
+                    onClick={() => handleClick(n)}
                     className={cn(
                       'w-full text-left px-4 py-3.5 transition-colors hover:bg-accent',
                       !isLast && 'border-b',

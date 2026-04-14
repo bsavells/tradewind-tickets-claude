@@ -41,16 +41,13 @@ export function NotificationBell({
 
   function handleOpen() {
     setOpen(v => !v)
-    // Mark all unread as read when opening
-    if (!open && unreadCount > 0) {
-      markRead.mutate(undefined)
-    }
   }
 
-  function handleNotificationClick(ticketId: string | null) {
+  function handleNotificationClick(n: { id: string; ticket_id: string | null; read: boolean }) {
     setOpen(false)
-    if (ticketId) {
-      navigate(isAdmin ? `/admin/tickets/${ticketId}` : `/tickets/${ticketId}`)
+    if (!n.read) markRead.mutate([n.id])
+    if (n.ticket_id) {
+      navigate(isAdmin ? `/admin/tickets/${n.ticket_id}` : `/tickets/${n.ticket_id}`)
     }
   }
 
@@ -108,7 +105,7 @@ export function NotificationBell({
               notifications.map(n => (
                 <button
                   key={n.id}
-                  onClick={() => handleNotificationClick(n.ticket_id)}
+                  onClick={() => handleNotificationClick(n)}
                   className={cn(
                     'w-full text-left px-4 py-3 border-b last:border-b-0 hover:bg-accent transition-colors',
                     !n.read && 'bg-blue-50 dark:bg-blue-950/20'
