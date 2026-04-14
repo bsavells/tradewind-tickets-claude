@@ -477,6 +477,11 @@ export function useRequestReturn() {
         note: note ?? null,
       })
       if (error) throw error
+
+      // Fire-and-forget: notify admins
+      supabase.functions.invoke('notify-ticket-event', {
+        body: { ticket_id: ticketId, event_kind: 'ticket_return_requested' },
+      }).catch(console.error)
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })

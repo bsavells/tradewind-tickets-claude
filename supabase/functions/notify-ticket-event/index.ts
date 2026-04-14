@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     const { ticket_id, event_kind } = await req.json() as {
       ticket_id: string
-      event_kind: 'ticket_submitted' | 'ticket_returned' | 'ticket_finalized'
+      event_kind: 'ticket_submitted' | 'ticket_returned' | 'ticket_finalized' | 'ticket_return_requested'
     }
 
     if (!ticket_id || !event_kind) {
@@ -139,6 +139,55 @@ Deno.serve(async (req) => {
         const prefMap = new Map(prefs?.map((p) => [p.user_id, p]) ?? [])
 
         const title = `New ticket submitted: ${ticket.ticket_number}`
+        const body = customerName
+
+        for (const adm of admins) {
+          const pref = prefMap.get(adm.id)
+          const inApp = pref?.in_app_enabled ?? DEFAULT_ENABLED
+          const emailEnabled = pref?.email_enabled ?? DEFAULT_ENABLED
+
+          if (inApp) {
+            inAppRows.push({
+              company_id: ticket.company_id,
+              recipient_id: adm.id,
+              ticket_id: ticket.id,
+              kind: event_kind,
+              title,
+              body,
+            })
+          }
+          if (emailEnabled) {
+            emailJobs.push({
+              to: adm.email,
+              subject: title,
+              html: buildEmailHtml(title, body, ticket.ticket_number),
+            })
+          }
+        }
+      }
+    }
+
+    // ── ticket_return_requested: notify all active admins ───────────────────────
+    if (event_kind === 'ticket_return_requested') {
+      const { data: admins } = await admin
+        .from('profiles')
+        .select('id, email')
+        .eq('company_id', ticket.company_id)
+        .eq('role', 'admin')
+        .eq('active', true)
+
+      if (admins && admins.length > 0) {
+        const adminIds = admins.map((a) => a.id)
+
+        const { data: prefs } = await admin
+          .from('notification_prefs')
+          .select('user_id, email_enabled, in_app_enabled')
+          .in('user_id', adminIds)
+          .eq('key', 'on_submit')
+
+        const prefMap = new Map(prefs?.map((p) => [p.user_id, p]) ?? [])
+
+        const title = `Return requested for ticket ${ticket.ticket_number}`
         const body = customerName
 
         for (const adm of admins) {
