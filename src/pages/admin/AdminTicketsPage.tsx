@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Search, ChevronRight, FileText, RefreshCw, FileDown, RotateCcw } from 'lucide-react'
+import { ClipboardList, Search, ChevronRight, FileText, RefreshCw, FileDown, RotateCcw, CheckCircle, Trash2 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
-import { useAllTickets, useReturnTicket } from '@/hooks/useTickets'
+import { useAllTickets, useReturnTicket, useFinalizeTicket, useDeleteTicket } from '@/hooks/useTickets'
 import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
@@ -40,12 +40,16 @@ export function AdminTicketsPage() {
   const [search, setSearch] = useState('')
   const [hasUpdates, setHasUpdates] = useState(false)
   const [confirmReturn, setConfirmReturn] = useState<{ id: string; number: string } | null>(null)
+  const [confirmFinalize, setConfirmFinalize] = useState<{ id: string; number: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; number: string } | null>(null)
   const [exportingPdfIds, setExportingPdfIds] = useState<Set<string>>(new Set())
 
   const { data: tickets = [], isLoading, refetch, isFetching } = useAllTickets(
     statusFilter === 'all' ? undefined : statusFilter
   )
   const returnTicket = useReturnTicket()
+  const finalizeTicket = useFinalizeTicket()
+  const deleteTicket = useDeleteTicket()
 
   const refetchRef = useRef(refetch)
   refetchRef.current = refetch
@@ -87,6 +91,18 @@ export function AdminTicketsPage() {
     if (!confirmReturn) return
     await returnTicket.mutateAsync({ ticketId: confirmReturn.id })
     setConfirmReturn(null)
+  }
+
+  async function handleConfirmFinalize() {
+    if (!confirmFinalize) return
+    await finalizeTicket.mutateAsync(confirmFinalize.id)
+    setConfirmFinalize(null)
+  }
+
+  async function handleConfirmDelete() {
+    if (!confirmDelete) return
+    await deleteTicket.mutateAsync(confirmDelete.id)
+    setConfirmDelete(null)
   }
 
   useEffect(() => {
@@ -267,7 +283,29 @@ export function AdminTicketsPage() {
                         PDF
                       </Button>
                     )}
-                    {t.status !== 'finalized' && isWritableAdmin && (
+                    {t.status === 'returned' && isWritableAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs text-destructive hover:text-destructive"
+                        onClick={e => { e.stopPropagation(); setConfirmDelete({ id: t.id, number: t.ticket_number }) }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete
+                      </Button>
+                    )}
+                    {t.status !== 'finalized' && t.status !== 'returned' && isWritableAdmin && Number(t.grand_total) > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={e => { e.stopPropagation(); setConfirmFinalize({ id: t.id, number: t.ticket_number }) }}
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Finalize
+                      </Button>
+                    )}
+                    {t.status !== 'finalized' && t.status !== 'returned' && isWritableAdmin && Number(t.grand_total) === 0 && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -298,11 +336,44 @@ export function AdminTicketsPage() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmReturn(null)}>Cancel</Button>
-            <Button
-              onClick={handleConfirmReturn}
-              disabled={returnTicket.isPending}
-            >
+            <Button onClick={handleConfirmReturn} disabled={returnTicket.isPending}>
               {returnTicket.isPending ? 'Returning…' : 'Return'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Finalize confirmation dialog */}
+      <Dialog open={!!confirmFinalize} onOpenChange={v => { if (!v) setConfirmFinalize(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Finalize Ticket</DialogTitle>
+            <DialogDescription>
+              Finalize <strong>{confirmFinalize?.number}</strong>? This will notify the technician and lock the ticket.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmFinalize(null)}>Cancel</Button>
+            <Button onClick={handleConfirmFinalize} disabled={finalizeTicket.isPending}>
+              {finalizeTicket.isPending ? 'Finalizing…' : 'Finalize'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!confirmDelete} onOpenChange={v => { if (!v) setConfirmDelete(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Ticket</DialogTitle>
+            <DialogDescription>
+              Permanently delete <strong>{confirmDelete?.number}</strong>? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={deleteTicket.isPending}>
+              {deleteTicket.isPending ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
