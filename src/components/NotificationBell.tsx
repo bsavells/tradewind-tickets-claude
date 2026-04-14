@@ -85,7 +85,7 @@ export function NotificationBell({
             {notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2">
                 <Bell className="h-6 w-6 opacity-30" />
-                <p className="text-sm">No notifications yet</p>
+                <p className="text-sm">No unread notifications</p>
               </div>
             ) : (
               notifications.map(n => (

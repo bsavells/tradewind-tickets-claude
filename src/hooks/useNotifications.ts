@@ -37,7 +37,7 @@ export function useNotifications() {
         .eq('dismissed', false)
         .eq('read', false)
         .order('created_at', { ascending: false })
-        .limit(10)
+        .limit(25)
       if (error) throw error
       return data as Notification[]
     },
