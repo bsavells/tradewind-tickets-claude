@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       .from('profiles')
       .select('id, email, first_name, role')
       .eq('company_id', ticket.company_id)
-      .eq('is_active', true)
+      .eq('active', true)
 
     const companyName =
       (ticket as { companies?: { name: string } }).companies?.name ?? 'Tradewind Controls'
