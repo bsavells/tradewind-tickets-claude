@@ -22,6 +22,7 @@ import { calcHours, todayISO } from '@/lib/timeUtils'
 import type { TicketFormData } from '@/hooks/useTickets'
 import { cn } from '@/lib/utils'
 import { PhotoUploader } from '@/components/PhotoUploader'
+import { SignatureSection } from '@/components/SignatureSection'
 
 // ---- Schema ----
 const materialSchema = z.object({
@@ -840,6 +841,29 @@ export function TicketFormPage() {
             />
           </CardContent>
         </Card>
+
+        {/* ---- Customer Signature ---- */}
+        {id ? (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Customer Signature</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SignatureSection ticketId={id} canEdit={true} />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Customer Signature</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Save the draft first to collect a signature.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Bottom save bar (mobile sticky) */}
         <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto border-t md:border-0 bg-background p-4 md:p-0 flex gap-3 z-10">

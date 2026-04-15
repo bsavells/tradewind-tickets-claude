@@ -84,6 +84,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  min-height: 100svh;
+html, body, #root {
+  height: 100svh;
+  overflow: hidden;
 }
