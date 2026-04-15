@@ -21,6 +21,7 @@ import {
   type AdminLineEdits,
 } from '@/hooks/useTickets'
 import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
+import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
@@ -256,7 +257,20 @@ export function AdminTicketReviewPage() {
   async function handleExportPdf() {
     setExportingPdf(true)
     try {
-      exportTicketPdf(t as unknown as ExportTicketData)
+      // Build export data — generate signed URL for customer signature if present
+      const exportData = { ...(t as unknown as ExportTicketData) }
+      if (t.ticket_signatures && t.ticket_signatures.length > 0) {
+        const sigsWithUrls = await Promise.all(
+          t.ticket_signatures.map(async (sig: { kind: string; signer_name: string | null; signed_at: string; image_url: string }) => {
+            const { data: signed } = await supabase.storage
+              .from('ticket-signatures')
+              .createSignedUrl(sig.image_url, 120)
+            return { ...sig, signedUrl: signed?.signedUrl }
+          })
+        )
+        exportData.ticket_signatures = sigsWithUrls
+      }
+      await exportTicketPdf(exportData)
       await logExport.mutateAsync({ ticketId: t!.id, format: 'pdf' })
     } finally {
       setExportingPdf(false)

@@ -56,6 +56,8 @@ export interface ExportTicketData {
     kind: string
     signer_name: string | null
     signed_at: string
+    image_url?: string
+    signedUrl?: string
   }[]
 }
 
@@ -100,7 +102,7 @@ function fmt$(n: number | null): string {
 }
 
 // ── Main export function ──────────────────────────────────────────────────────
-export function exportTicketPdf(t: ExportTicketData): void {
+export async function exportTicketPdf(t: ExportTicketData): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
   const pageW = doc.internal.pageSize.getWidth()
 
@@ -327,30 +329,63 @@ export function exportTicketPdf(t: ExportTicketData): void {
   const customerSig = sigs.find(s => s.kind === 'customer')
   const supervisorSig = sigs.find(s => s.kind === 'supervisor')
 
-  if (customerSig || supervisorSig) {
-    y = sectionTitle(doc, 'Signatures', y)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
+  if (customerSig) {
+    y = checkPageBreak(doc, y, 50)
+    y += SECTION_GAP
 
-    if (customerSig) {
-      let sigDateStr = '—'
-      try { sigDateStr = format(new Date(customerSig.signed_at), 'MMM d, yyyy h:mm a') } catch { /* ignore */ }
-      doc.setFont('helvetica', 'bold')
-      doc.text('Customer:', PAGE_MARGIN, y)
-      doc.setFont('helvetica', 'normal')
-      doc.text(customerSig.signer_name ?? '', PAGE_MARGIN + 22, y)
-      doc.text(sigDateStr, pageW - PAGE_MARGIN, y, { align: 'right' })
-      y += 6
+    doc.setFontSize(9)
+    doc.setTextColor(...TITLE_COLOR)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Customer Signature', PAGE_MARGIN, y)
+    y += 5
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(0, 0, 0)
+
+    // Signature image
+    if (customerSig.signedUrl) {
+      try {
+        const response = await fetch(customerSig.signedUrl)
+        const blob = await response.blob()
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+        doc.addImage(`data:image/png;base64,${base64}`, 'PNG', PAGE_MARGIN, y, 70, 23)
+        y += 25
+      } catch {
+        // Skip image if fetch fails — still show name/date below
+      }
     }
-    if (supervisorSig) {
-      let sigDateStr = '—'
-      try { sigDateStr = format(new Date(supervisorSig.signed_at), 'MMM d, yyyy h:mm a') } catch { /* ignore */ }
-      doc.setFont('helvetica', 'bold')
-      doc.text('Supervisor:', PAGE_MARGIN, y)
-      doc.setFont('helvetica', 'normal')
-      doc.text(supervisorSig.signer_name ?? '', PAGE_MARGIN + 24, y)
-      doc.text(sigDateStr, pageW - PAGE_MARGIN, y, { align: 'right' })
-    }
+
+    // Signature line
+    doc.setDrawColor(180, 180, 180)
+    doc.line(PAGE_MARGIN, y, PAGE_MARGIN + 80, y)
+    y += 4
+
+    // Signer name + date
+    doc.setFontSize(8)
+    doc.setTextColor(80, 80, 80)
+    let customerSigDateStr = '—'
+    try { customerSigDateStr = format(new Date(customerSig.signed_at), 'MMM d, yyyy h:mm a') } catch { /* ignore */ }
+    doc.text(customerSig.signer_name ?? '', PAGE_MARGIN, y)
+    doc.text(customerSigDateStr, PAGE_MARGIN + 85, y)
+    y += 5
+    doc.setTextColor(0, 0, 0)
+  }
+
+  if (supervisorSig) {
+    y = checkPageBreak(doc, y, 20)
+    y += SECTION_GAP
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.text('Supervisor:', PAGE_MARGIN, y)
+    doc.setFont('helvetica', 'normal')
+    let supervisorSigDateStr = '—'
+    try { supervisorSigDateStr = format(new Date(supervisorSig.signed_at), 'MMM d, yyyy h:mm a') } catch { /* ignore */ }
+    doc.text(supervisorSig.signer_name ?? '', PAGE_MARGIN + 24, y)
+    doc.text(supervisorSigDateStr, pageW - PAGE_MARGIN, y, { align: 'right' })
   }
 
   // ── Footer on every page ─────────────────────────────────────────────────────
