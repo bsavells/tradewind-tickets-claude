@@ -10,10 +10,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// ── Pref defaults (no row in notification_prefs = opted in) ──────────────────
+// ── Pref defaults (no row in notification_prefs = opted in to immediate) ────────
 const DEFAULT_ENABLED = true
+const DEFAULT_FREQUENCY = 'immediate'
 
-// ── Email helper ─────────────────────────────────────────────────────────────
+// ── Resolve effective email_frequency from a pref row ───────────────────────────
+function resolveFrequency(pref: { email_enabled?: boolean; email_frequency?: string } | undefined): 'off' | 'immediate' | 'digest' {
+  if (!pref) return DEFAULT_ENABLED ? DEFAULT_FREQUENCY as 'immediate' : 'off'
+  // If email_frequency is explicitly set, use it
+  if (pref.email_frequency && ['off', 'immediate', 'digest'].includes(pref.email_frequency)) {
+    return pref.email_frequency as 'off' | 'immediate' | 'digest'
+  }
+  // Fallback for legacy rows without email_frequency
+  return pref.email_enabled !== false ? 'immediate' : 'off'
+}
+
+// ── Email helper ─────────────────────────────────────────────────────────────────
 async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!SENDGRID_API_KEY) {
     console.warn('SENDGRID_API_KEY not set — skipping email to', to)
@@ -56,25 +68,22 @@ function buildEmailHtml(title: string, body: string | null, ticketNumber: string
 </html>`
 }
 
-// ── Main handler ─────────────────────────────────────────────────────────────
+// ── Main handler ─────────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Verify caller is authenticated
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response('Unauthorized', { status: 401, headers: corsHeaders })
     }
 
-    // Service-role client for all DB operations
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
       auth: { persistSession: false },
     })
 
-    // Verify JWT
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authErr } = await admin.auth.getUser(token)
     if (authErr || !user) {
@@ -90,7 +99,7 @@ Deno.serve(async (req) => {
       return new Response('Missing ticket_id or event_kind', { status: 400, headers: corsHeaders })
     }
 
-    // Fetch ticket with customer name
+    // Fetch ticket with ticket_number for digest queue
     const { data: ticket, error: tErr } = await admin
       .from('tickets')
       .select('id, ticket_number, company_id, created_by, customers(name)')
@@ -105,7 +114,6 @@ Deno.serve(async (req) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const customerName: string = (ticket.customers as any)?.name ?? ''
 
-    // Collect in-app rows and email jobs
     const inAppRows: {
       company_id: string
       recipient_id: string
@@ -115,9 +123,60 @@ Deno.serve(async (req) => {
       body: string
     }[] = []
 
+    const digestRows: {
+      company_id: string
+      recipient_id: string
+      ticket_number: string
+      kind: string
+      title: string
+      body: string | null
+    }[] = []
+
     const emailJobs: { to: string; subject: string; html: string }[] = []
 
-    // ── ticket_submitted: notify all active admins ───────────────────────────
+    // ── Helper: process a single recipient ──────────────────────────────────────
+    function processRecipient(opts: {
+      recipientId: string
+      email: string
+      pref: { email_enabled?: boolean; email_frequency?: string; in_app_enabled?: boolean } | undefined
+      inAppDefault: boolean
+      title: string
+      body: string
+      kind: string
+    }) {
+      const inApp = opts.pref?.in_app_enabled ?? opts.inAppDefault
+      const freq = resolveFrequency(opts.pref)
+
+      if (inApp) {
+        inAppRows.push({
+          company_id: ticket.company_id,
+          recipient_id: opts.recipientId,
+          ticket_id: ticket.id,
+          kind: opts.kind,
+          title: opts.title,
+          body: opts.body,
+        })
+      }
+
+      if (freq === 'immediate') {
+        emailJobs.push({
+          to: opts.email,
+          subject: opts.title,
+          html: buildEmailHtml(opts.title, opts.body || null, ticket.ticket_number),
+        })
+      } else if (freq === 'digest') {
+        digestRows.push({
+          company_id: ticket.company_id,
+          recipient_id: opts.recipientId,
+          ticket_number: ticket.ticket_number,
+          kind: opts.kind,
+          title: opts.title,
+          body: opts.body || null,
+        })
+      }
+    }
+
+    // ── ticket_submitted: notify all active admins ───────────────────────────────
     if (event_kind === 'ticket_submitted') {
       const { data: admins } = await admin
         .from('profiles')
@@ -128,46 +187,30 @@ Deno.serve(async (req) => {
 
       if (admins && admins.length > 0) {
         const adminIds = admins.map((a) => a.id)
-
-        // Fetch their prefs for 'on_submit'
         const { data: prefs } = await admin
           .from('notification_prefs')
-          .select('user_id, email_enabled, in_app_enabled')
+          .select('user_id, email_enabled, email_frequency, in_app_enabled')
           .in('user_id', adminIds)
           .eq('key', 'on_submit')
 
         const prefMap = new Map(prefs?.map((p) => [p.user_id, p]) ?? [])
-
         const title = `New ticket submitted: ${ticket.ticket_number}`
-        const body = customerName
 
         for (const adm of admins) {
-          const pref = prefMap.get(adm.id)
-          const inApp = pref?.in_app_enabled ?? DEFAULT_ENABLED
-          const emailEnabled = pref?.email_enabled ?? DEFAULT_ENABLED
-
-          if (inApp) {
-            inAppRows.push({
-              company_id: ticket.company_id,
-              recipient_id: adm.id,
-              ticket_id: ticket.id,
-              kind: event_kind,
-              title,
-              body,
-            })
-          }
-          if (emailEnabled) {
-            emailJobs.push({
-              to: adm.email,
-              subject: title,
-              html: buildEmailHtml(title, body, ticket.ticket_number),
-            })
-          }
+          processRecipient({
+            recipientId: adm.id,
+            email: adm.email,
+            pref: prefMap.get(adm.id),
+            inAppDefault: DEFAULT_ENABLED,
+            title,
+            body: customerName,
+            kind: event_kind,
+          })
         }
       }
     }
 
-    // ── ticket_return_requested: notify all active admins ───────────────────────
+    // ── ticket_return_requested: notify all active admins ────────────────────────
     if (event_kind === 'ticket_return_requested') {
       const { data: admins } = await admin
         .from('profiles')
@@ -178,49 +221,33 @@ Deno.serve(async (req) => {
 
       if (admins && admins.length > 0) {
         const adminIds = admins.map((a) => a.id)
-
         const { data: prefs } = await admin
           .from('notification_prefs')
-          .select('user_id, email_enabled, in_app_enabled')
+          .select('user_id, email_enabled, email_frequency, in_app_enabled')
           .in('user_id', adminIds)
           .eq('key', 'on_submit')
 
         const prefMap = new Map(prefs?.map((p) => [p.user_id, p]) ?? [])
-
         const title = `Return requested for ticket ${ticket.ticket_number}`
-        const body = customerName
 
         for (const adm of admins) {
-          const pref = prefMap.get(adm.id)
-          const inApp = pref?.in_app_enabled ?? DEFAULT_ENABLED
-          const emailEnabled = pref?.email_enabled ?? DEFAULT_ENABLED
-
-          if (inApp) {
-            inAppRows.push({
-              company_id: ticket.company_id,
-              recipient_id: adm.id,
-              ticket_id: ticket.id,
-              kind: event_kind,
-              title,
-              body,
-            })
-          }
-          if (emailEnabled) {
-            emailJobs.push({
-              to: adm.email,
-              subject: title,
-              html: buildEmailHtml(title, body, ticket.ticket_number),
-            })
-          }
+          processRecipient({
+            recipientId: adm.id,
+            email: adm.email,
+            pref: prefMap.get(adm.id),
+            inAppDefault: DEFAULT_ENABLED,
+            title,
+            body: customerName,
+            kind: event_kind,
+          })
         }
       }
     }
 
-    // ── ticket_returned / ticket_finalized: notify the ticket creator ─────────
+    // ── ticket_returned / ticket_finalized: notify ticket creator ────────────────
     if (event_kind === 'ticket_returned' || event_kind === 'ticket_finalized') {
       const prefKey = event_kind === 'ticket_returned' ? 'on_return' : 'on_finalize'
 
-      // Don't notify if the caller IS the creator (self-action edge case)
       if (ticket.created_by && ticket.created_by !== user.id) {
         const { data: creator } = await admin
           .from('profiles')
@@ -231,40 +258,29 @@ Deno.serve(async (req) => {
         if (creator && creator.active) {
           const { data: pref } = await admin
             .from('notification_prefs')
-            .select('email_enabled, in_app_enabled')
+            .select('email_enabled, email_frequency, in_app_enabled')
             .eq('user_id', creator.id)
             .eq('key', prefKey)
             .maybeSingle()
-
-          const inApp = pref?.in_app_enabled ?? DEFAULT_ENABLED
-          const emailEnabled = pref?.email_enabled ?? DEFAULT_ENABLED
 
           const title = event_kind === 'ticket_returned'
             ? `Ticket ${ticket.ticket_number} returned for revision`
             : `Ticket ${ticket.ticket_number} has been finalized`
 
-          if (inApp) {
-            inAppRows.push({
-              company_id: ticket.company_id,
-              recipient_id: creator.id,
-              ticket_id: ticket.id,
-              kind: event_kind,
-              title,
-              body: customerName,
-            })
-          }
-          if (emailEnabled) {
-            emailJobs.push({
-              to: creator.email,
-              subject: title,
-              html: buildEmailHtml(title, customerName || null, ticket.ticket_number),
-            })
-          }
+          processRecipient({
+            recipientId: creator.id,
+            email: creator.email,
+            pref: pref ?? undefined,
+            inAppDefault: DEFAULT_ENABLED,
+            title,
+            body: customerName,
+            kind: event_kind,
+          })
         }
       }
     }
 
-    // ── ticket_deleted: notify the ticket creator (always — no opt-out) ───────
+    // ── ticket_deleted: notify creator (always — no opt-out) ────────────────────
     if (event_kind === 'ticket_deleted') {
       if (ticket.created_by && ticket.created_by !== user.id) {
         const { data: creator } = await admin
@@ -278,7 +294,7 @@ Deno.serve(async (req) => {
           inAppRows.push({
             company_id: ticket.company_id,
             recipient_id: creator.id,
-            ticket_id: null, // ticket no longer exists after this
+            ticket_id: null as unknown as string,
             kind: event_kind,
             title,
             body: customerName,
@@ -292,19 +308,25 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Write in-app notifications ───────────────────────────────────────────
+    // ── Write in-app notifications ───────────────────────────────────────────────
     if (inAppRows.length > 0) {
       const { error: insErr } = await admin.from('notifications').insert(inAppRows)
       if (insErr) console.error('Notification insert error:', insErr)
     }
 
-    // ── Send emails (fire and forget per recipient) ──────────────────────────
+    // ── Queue digest items ───────────────────────────────────────────────────────
+    if (digestRows.length > 0) {
+      const { error: digErr } = await admin.from('notification_digest_queue').insert(digestRows)
+      if (digErr) console.error('Digest queue insert error:', digErr)
+    }
+
+    // ── Send immediate emails ────────────────────────────────────────────────────
     await Promise.allSettled(
       emailJobs.map((j) => sendEmail(j.to, j.subject, j.html))
     )
 
     return new Response(
-      JSON.stringify({ in_app: inAppRows.length, emails: emailJobs.length }),
+      JSON.stringify({ in_app: inAppRows.length, digest: digestRows.length, emails: emailJobs.length }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err) {

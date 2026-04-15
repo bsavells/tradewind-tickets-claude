@@ -21,10 +21,13 @@ export interface NotificationPref {
   user_id: string
   key: string
   email_enabled: boolean
+  email_frequency: 'off' | 'immediate' | 'digest'
   in_app_enabled: boolean
 }
 
-// ── Fetch recent non-dismissed notifications for bell dropdown ────────────────
+export type EmailFrequency = 'off' | 'immediate' | 'digest'
+
+// ── Fetch recent unread non-dismissed notifications for bell dropdown ──────────
 export function useNotifications() {
   const { profile } = useAuth()
   return useQuery({
@@ -164,9 +167,13 @@ export function useNotificationPrefs(userId: string | undefined) {
         .select('*')
         .eq('user_id', userId!)
       if (error) throw error
-      const map: Record<string, { email_enabled: boolean; in_app_enabled: boolean }> = {}
+      const map: Record<string, { email_enabled: boolean; email_frequency: EmailFrequency; in_app_enabled: boolean }> = {}
       for (const row of data as NotificationPref[]) {
-        map[row.key] = { email_enabled: row.email_enabled, in_app_enabled: row.in_app_enabled }
+        map[row.key] = {
+          email_enabled: row.email_enabled,
+          email_frequency: row.email_frequency ?? (row.email_enabled ? 'immediate' : 'off'),
+          in_app_enabled: row.in_app_enabled,
+        }
       }
       return map
     },
@@ -181,24 +188,59 @@ export function useUpsertNotificationPref() {
     mutationFn: async ({
       user_id,
       key,
-      email_enabled,
+      email_frequency,
       in_app_enabled,
     }: {
       user_id: string
       key: string
-      email_enabled: boolean
+      email_frequency: EmailFrequency
       in_app_enabled: boolean
     }) => {
       const { error } = await supabase
         .from('notification_prefs')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert({ user_id, key, email_enabled, in_app_enabled } as any, {
-          onConflict: 'user_id,key',
-        })
+        .upsert({
+          user_id,
+          key,
+          email_frequency,
+          email_enabled: email_frequency !== 'off',
+          in_app_enabled,
+        } as any, { onConflict: 'user_id,key' })
       if (error) throw error
     },
     onSuccess: (_data, { user_id }) => {
       qc.invalidateQueries({ queryKey: ['notification-prefs', user_id] })
+    },
+  })
+}
+
+// ── Update digest hour on profile ─────────────────────────────────────────────
+export function useUpdateDigestHour() {
+  const qc = useQueryClient()
+  const { profile } = useAuth()
+  return useMutation({
+    mutationFn: async (digest_hour: number) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.from('profiles') as any)
+        .update({ digest_hour })
+        .eq('id', profile!.id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile'] })
+    },
+  })
+}
+
+// ── Send a test email to the current user ─────────────────────────────────────
+export function useSendTestEmail() {
+  const { profile } = useAuth()
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.functions.invoke('send-test-email', {
+        body: { recipient_email: profile!.email, recipient_name: profile!.first_name },
+      })
+      if (error) throw error
     },
   })
 }

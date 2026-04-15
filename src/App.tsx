@@ -20,6 +20,7 @@ import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage'
 import { AdminClassificationsPage } from '@/pages/admin/AdminClassificationsPage'
 import { AdminVehiclesPage } from '@/pages/admin/AdminVehiclesPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
+import { NotificationPrefsPage } from '@/pages/NotificationPrefsPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -52,6 +53,7 @@ export default function App() {
 
                 {/* Shared routes */}
                 <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/notification-settings" element={<NotificationPrefsPage />} />
 
                 {/* User routes */}
                 <Route path="/tickets" element={<MyTicketsPage />} />

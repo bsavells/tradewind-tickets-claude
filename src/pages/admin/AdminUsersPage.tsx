@@ -216,14 +216,14 @@ function EditUserDialog({
                       <span className="text-[10px] text-muted-foreground">In-app</span>
                       <Switch
                         checked={inApp}
-                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: v, email_enabled: email })}
+                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: v, email_frequency: email ? 'immediate' : 'off' })}
                       />
                     </div>
                     <div className="flex flex-col items-center gap-0.5">
                       <span className="text-[10px] text-muted-foreground">Email</span>
                       <Switch
                         checked={email}
-                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: inApp, email_enabled: v })}
+                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: inApp, email_frequency: v ? 'immediate' : 'off' })}
                       />
                     </div>
                   </div>

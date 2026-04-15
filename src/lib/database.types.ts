@@ -146,21 +146,57 @@ export type Database = {
           },
         ]
       }
+      notification_digest_queue: {
+        Row: {
+          id: string
+          company_id: string
+          recipient_id: string
+          ticket_number: string
+          kind: string
+          title: string
+          body: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          company_id: string
+          recipient_id: string
+          ticket_number: string
+          kind: string
+          title: string
+          body?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          company_id?: string
+          recipient_id?: string
+          ticket_number?: string
+          kind?: string
+          title?: string
+          body?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       notification_prefs: {
         Row: {
           email_enabled: boolean
+          email_frequency: string
           in_app_enabled: boolean
           key: string
           user_id: string
         }
         Insert: {
           email_enabled?: boolean
+          email_frequency?: string
           in_app_enabled?: boolean
           key: string
           user_id: string
         }
         Update: {
           email_enabled?: boolean
+          email_frequency?: string
           in_app_enabled?: boolean
           key?: string
           user_id?: string
@@ -243,6 +279,7 @@ export type Database = {
           company_id: string
           created_at: string
           default_vehicle_id: string | null
+          digest_hour: number
           email: string
           first_name: string
           id: string
@@ -257,6 +294,7 @@ export type Database = {
           company_id: string
           created_at?: string
           default_vehicle_id?: string | null
+          digest_hour?: number
           email: string
           first_name?: string
           id: string
@@ -271,6 +309,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           default_vehicle_id?: string | null
+          digest_hour?: number
           email?: string
           first_name?: string
           id?: string

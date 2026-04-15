@@ -14,6 +14,7 @@ import {
   Settings,
   Truck,
   Bell,
+  BellRing,
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -51,6 +52,7 @@ export function AppShell() {
   const techNav = [
     { to: '/tickets', icon: FileText, label: 'My Tickets' },
     { to: '/notifications', icon: Bell, label: 'Notifications' },
+    { to: '/notification-settings', icon: BellRing, label: 'Notification Settings' },
   ]
 
   const adminNav = [
@@ -61,6 +63,7 @@ export function AppShell() {
     { to: '/admin/users', icon: Users, label: 'Users' },
     { to: '/admin/vehicles', icon: Truck, label: 'Vehicles' },
     { to: '/notifications', icon: Bell, label: 'Notifications' },
+    { to: '/notification-settings', icon: BellRing, label: 'Notification Settings' },
     { to: '/admin/settings', icon: Settings, label: 'Settings' },
   ]
 
