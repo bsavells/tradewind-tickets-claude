@@ -259,6 +259,11 @@ export function AdminTicketsPage() {
                       {t.has_post_finalize_changes && (
                         <Badge variant="warning" className="text-xs h-4 px-1.5">Updated</Badge>
                       )}
+                      {t.is_signed && (
+                        <Badge variant="outline" className="text-xs h-4 px-1.5 text-green-700 border-green-300 bg-green-50">
+                          Signed
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
                       {customerName} · {techName} · {format(new Date(t.work_date), 'MMM d, yyyy')}
