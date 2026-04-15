@@ -184,7 +184,7 @@ export function AdminTicketReviewPage() {
   const canReturn = isWritableAdmin && t.status === 'submitted'
   const canUnfinalize = isWritableAdmin && isFinalized
   const canDelete = isWritableAdmin && !isFinalized
-  const canExport = isWritableAdmin && (t.status === 'submitted' || t.status === 'finalized')
+  const canExport = isWritableAdmin && t.status === 'finalized'
 
   function updateMaterial(id: string, price: string) {
     setMaterials(prev => prev.map(m => m.id === id ? { ...m, price_each: num(price) } : m))
