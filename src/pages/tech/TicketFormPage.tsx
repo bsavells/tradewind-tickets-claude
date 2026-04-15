@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, Save, ArrowLeft, Camera, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, Save, ArrowLeft, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,7 @@ import { useDraftAutosave, loadDraft, clearDraft } from '@/hooks/useDraftAutosav
 import { calcHours, todayISO } from '@/lib/timeUtils'
 import type { TicketFormData } from '@/hooks/useTickets'
 import { cn } from '@/lib/utils'
+import { PhotoUploader } from '@/components/PhotoUploader'
 
 // ---- Schema ----
 const materialSchema = z.object({
@@ -355,6 +356,14 @@ export function TicketFormPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function handleAutoSave(): Promise<string> {
+    const data = getValues() as unknown as TicketFormData
+    const ticket = await createTicket.mutateAsync(data)
+    await clearDraft('new')
+    navigate(`/tickets/${ticket.id}/edit`, { replace: true })
+    return ticket.id
   }
 
   const customerOptions = customers.filter(c => c.active)
@@ -818,16 +827,17 @@ export function TicketFormPage() {
           )}
         </Card>
 
-        {/* ---- Photos placeholder ---- */}
+        {/* ---- Photos ---- */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Photos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-6 rounded-md border-2 border-dashed text-muted-foreground gap-2">
-              <Camera className="h-7 w-7 opacity-40" />
-              <p className="text-sm">Photo upload coming in a future update</p>
-            </div>
+            <PhotoUploader
+              ticketId={id}
+              canEdit={true}
+              onAutoSave={handleAutoSave}
+            />
           </CardContent>
         </Card>
 
