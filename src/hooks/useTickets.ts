@@ -130,6 +130,9 @@ export function useTicket(id: string | undefined) {
       return data
     },
     enabled: !!id,
+    // Always refetch on mount so signatures, photos, and is_signed are fresh
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 

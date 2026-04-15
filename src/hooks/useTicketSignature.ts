@@ -35,6 +35,10 @@ export function useTicketSignature(ticketId: string | undefined) {
       return { ...data, signedUrl: signed?.signedUrl ?? '' } as TicketSignature
     },
     enabled: !!ticketId,
+    // Always refetch on mount — the customer may have signed via email
+    // between page visits, and the stale cache would hide the signature.
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 
