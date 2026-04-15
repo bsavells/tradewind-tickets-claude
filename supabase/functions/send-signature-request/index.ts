@@ -54,13 +54,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    if (ticket.status === 'draft') {
-      return new Response(
-        JSON.stringify({ error: 'Cannot request signature on a draft ticket' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
     // Invalidate any existing token for this ticket
     await admin.from('signature_tokens').delete().eq('ticket_id', ticket_id)
 
