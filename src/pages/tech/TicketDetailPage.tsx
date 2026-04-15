@@ -273,7 +273,7 @@ export function TicketDetailPage() {
           <CardTitle className="text-sm">Customer Signature</CardTitle>
         </CardHeader>
         <CardContent>
-          <SignatureSection ticketId={t.id} canEdit={t.status !== 'draft'} />
+          <SignatureSection ticketId={t.id} canEdit={true} />
         </CardContent>
       </Card>
 
