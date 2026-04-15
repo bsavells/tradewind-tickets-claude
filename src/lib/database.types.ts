@@ -148,36 +148,51 @@ export type Database = {
       }
       notification_digest_queue: {
         Row: {
-          id: string
+          body: string | null
           company_id: string
+          created_at: string
+          id: string
+          kind: string
           recipient_id: string
           ticket_number: string
-          kind: string
           title: string
-          body: string | null
-          created_at: string
         }
         Insert: {
-          id?: string
+          body?: string | null
           company_id: string
+          created_at?: string
+          id?: string
+          kind: string
           recipient_id: string
           ticket_number: string
-          kind: string
           title: string
-          body?: string | null
-          created_at?: string
         }
         Update: {
-          id?: string
+          body?: string | null
           company_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
           recipient_id?: string
           ticket_number?: string
-          kind?: string
           title?: string
-          body?: string | null
-          created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notification_digest_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_digest_queue_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_prefs: {
         Row: {
@@ -213,40 +228,40 @@ export type Database = {
       }
       notifications: {
         Row: {
-          id: string
+          body: string | null
           company_id: string
+          created_at: string
+          dismissed: boolean
+          id: string
+          kind: string
+          read: boolean
           recipient_id: string
           ticket_id: string | null
-          kind: string
           title: string
-          body: string | null
-          read: boolean
-          dismissed: boolean
-          created_at: string
         }
         Insert: {
-          id?: string
+          body?: string | null
           company_id: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          kind: string
+          read?: boolean
           recipient_id: string
           ticket_id?: string | null
-          kind: string
           title: string
-          body?: string | null
-          read?: boolean
-          dismissed?: boolean
-          created_at?: string
         }
         Update: {
-          id?: string
+          body?: string | null
           company_id?: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          kind?: string
+          read?: boolean
           recipient_id?: string
           ticket_id?: string | null
-          kind?: string
           title?: string
-          body?: string | null
-          read?: boolean
-          dismissed?: boolean
-          created_at?: string
         }
         Relationships: [
           {
@@ -338,6 +353,48 @@ export type Database = {
             columns: ["default_vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signature_tokens: {
+        Row: {
+          expires_at: string
+          id: string
+          requested_by: string
+          ticket_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          expires_at: string
+          id?: string
+          requested_by: string
+          ticket_id: string
+          token?: string
+          used_at?: string | null
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+          requested_by?: string
+          ticket_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_tokens_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signature_tokens_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
         ]
@@ -753,7 +810,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
-          created_by: string
+          created_by: string | null
           customer_id: string
           equipment_enabled: boolean
           finalized_at: string | null
@@ -761,6 +818,7 @@ export type Database = {
           grand_total: number
           has_post_finalize_changes: boolean
           id: string
+          is_signed: boolean
           job_location: string | null
           job_number: string | null
           job_problem: string | null
@@ -775,7 +833,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
           customer_id: string
           equipment_enabled?: boolean
           finalized_at?: string | null
@@ -783,6 +841,7 @@ export type Database = {
           grand_total?: number
           has_post_finalize_changes?: boolean
           id?: string
+          is_signed?: boolean
           job_location?: string | null
           job_number?: string | null
           job_problem?: string | null
@@ -797,7 +856,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           customer_id?: string
           equipment_enabled?: boolean
           finalized_at?: string | null
@@ -805,6 +864,7 @@ export type Database = {
           grand_total?: number
           has_post_finalize_changes?: boolean
           id?: string
+          is_signed?: boolean
           job_location?: string | null
           job_number?: string | null
           job_problem?: string | null
@@ -939,6 +999,7 @@ export type Database = {
           company_id: string
           created_at: string
           default_vehicle_id: string | null
+          digest_hour: number
           email: string
           first_name: string
           id: string
@@ -1010,13 +1071,13 @@ export type Tables<
     : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
         DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-      DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-    ? R
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
     : never
-  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
@@ -1036,12 +1097,12 @@ export type TablesInsert<
     ? I
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Insert: infer I
-    }
-    ? I
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
     : never
-  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
@@ -1061,12 +1122,12 @@ export type TablesUpdate<
     ? U
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-      Update: infer U
-    }
-    ? U
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
     : never
-  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
@@ -1082,8 +1143,8 @@ export type Enums<
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
@@ -1099,8 +1160,8 @@ export type CompositeTypes<
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {
