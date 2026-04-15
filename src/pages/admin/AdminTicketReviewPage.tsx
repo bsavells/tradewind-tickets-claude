@@ -180,7 +180,20 @@ export function AdminTicketReviewPage() {
     e => e.action === 'return_requested' && (e.occurred_at ? new Date(e.occurred_at).getTime() : 0) > lastSubmittedTime
   )
   const canEdit = isWritableAdmin && !isFinalized && t.status !== 'draft'
-  const canFinalize = isWritableAdmin && (t.status === 'submitted')
+
+  // Pricing is "complete" when every line item has its price/rate set.
+  // OT rates are only required when OT hours > 0.
+  const pricingComplete =
+    materials.every(m => m.price_each != null) &&
+    labor.every(
+      l =>
+        (l.reg_hours == null || l.reg_hours === 0 || l.reg_rate != null) &&
+        (l.ot_hours == null || l.ot_hours === 0 || l.ot_rate != null)
+    ) &&
+    vehicles.every(v => v.rate != null) &&
+    equipment.every(e => e.rate != null)
+
+  const canFinalize = isWritableAdmin && t.status === 'submitted' && pricingComplete
   const canReturn = isWritableAdmin && t.status === 'submitted'
   const canUnfinalize = isWritableAdmin && isFinalized
   const canDelete = isWritableAdmin && !isFinalized
@@ -633,10 +646,22 @@ export function AdminTicketReviewPage() {
             </Button>
           </>
         )}
-        {canFinalize && (
-          <Button className="gap-2 ml-auto" onClick={() => setFinalizeOpen(true)}>
-            <Check className="h-4 w-4" /> Finalize
-          </Button>
+        {isWritableAdmin && t.status === 'submitted' && (
+          <div className="ml-auto flex flex-col items-end gap-1">
+            <Button
+              className="gap-2"
+              onClick={() => setFinalizeOpen(true)}
+              disabled={!pricingComplete}
+              title={pricingComplete ? undefined : 'Add pricing to all line items before finalizing'}
+            >
+              <Check className="h-4 w-4" /> Finalize
+            </Button>
+            {!pricingComplete && (
+              <p className="text-xs text-muted-foreground">
+                Add pricing to all line items before finalizing.
+              </p>
+            )}
+          </div>
         )}
         {canUnfinalize && (
           <Button variant="outline" className="gap-2 ml-auto" onClick={() => setUnfinalizeOpen(true)}>
