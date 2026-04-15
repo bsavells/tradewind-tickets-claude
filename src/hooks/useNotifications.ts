@@ -182,6 +182,9 @@ export function useNotificationPrefs(userId: string | undefined) {
 }
 
 // ── Upsert a single pref row ──────────────────────────────────────────────────
+// Note: in_app_enabled is intentionally not exposed — in-app notifications are
+// non-invasive (bell dot only) and always on. The column is still written as
+// `true` for backward compatibility with the existing schema.
 export function useUpsertNotificationPref() {
   const qc = useQueryClient()
   return useMutation({
@@ -189,12 +192,10 @@ export function useUpsertNotificationPref() {
       user_id,
       key,
       email_frequency,
-      in_app_enabled,
     }: {
       user_id: string
       key: string
       email_frequency: EmailFrequency
-      in_app_enabled: boolean
     }) => {
       const { error } = await supabase
         .from('notification_prefs')
@@ -204,7 +205,7 @@ export function useUpsertNotificationPref() {
           key,
           email_frequency,
           email_enabled: email_frequency !== 'off',
-          in_app_enabled,
+          in_app_enabled: true,
         } as any, { onConflict: 'user_id,key' })
       if (error) throw error
     },

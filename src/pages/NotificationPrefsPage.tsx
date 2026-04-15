@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Bell, CheckCircle, Mail, Zap, Clock, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -21,20 +20,30 @@ const ADMIN_PREFS = [
   {
     key: 'on_submit',
     label: 'New ticket submitted',
-    description: 'When a technician submits a ticket for review, or requests a return on a finalized ticket.',
+    description: 'When a technician submits a ticket for review.',
+  },
+  {
+    key: 'on_return_request',
+    label: 'Return requested on finalized ticket',
+    description: 'When a technician requests that a finalized ticket be reopened for edits.',
   },
 ]
 
 const TECH_PREFS = [
   {
     key: 'on_return',
-    label: 'Ticket returned',
-    description: 'When an admin returns one of your tickets for revision.',
+    label: 'Ticket returned for revision',
+    description: 'When an admin returns one of your tickets.',
   },
   {
     key: 'on_finalize',
     label: 'Ticket finalized',
     description: 'When an admin finalizes one of your tickets.',
+  },
+  {
+    key: 'on_delete',
+    label: 'Ticket deleted',
+    description: 'When an admin deletes one of your tickets.',
   },
 ]
 
@@ -45,21 +54,24 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => {
 })
 
 // ── Email frequency selector ─────────────────────────────────────────────────
-const FREQ_OPTIONS: { value: EmailFrequency; label: string; icon: React.ElementType; description: string }[] = [
+export const FREQ_OPTIONS: { value: EmailFrequency; label: string; icon: React.ElementType; description: string }[] = [
   { value: 'off',       label: 'Off',           icon: Bell,         description: 'No email' },
   { value: 'immediate', label: 'Immediate',      icon: Zap,          description: 'Email right away' },
   { value: 'digest',    label: 'Daily Digest',   icon: Clock,        description: 'Batched once a day' },
 ]
 
-function FreqSelector({
+export function FreqSelector({
   value,
   onChange,
   saving,
+  size = 'md',
 }: {
   value: EmailFrequency
   onChange: (v: EmailFrequency) => void
   saving: boolean
+  size?: 'sm' | 'md'
 }) {
+  const padding = size === 'sm' ? 'px-2 py-1' : 'px-3 py-1.5'
   return (
     <div className="flex gap-1.5">
       {FREQ_OPTIONS.map(opt => {
@@ -68,11 +80,13 @@ function FreqSelector({
         return (
           <button
             key={opt.value}
+            type="button"
             disabled={saving}
             onClick={() => onChange(opt.value)}
             title={opt.description}
             className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors',
+              'flex items-center gap-1.5 rounded-md border text-xs font-medium transition-colors',
+              padding,
               active
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'text-muted-foreground border-border hover:bg-accent hover:text-accent-foreground'
@@ -111,25 +125,10 @@ export function NotificationPrefsPage() {
   async function handleFreqChange(key: string, freq: EmailFrequency) {
     if (!profile) return
     setSavingKey(key)
-    const current = prefMap[key]
     await upsert.mutateAsync({
       user_id: profile.id,
       key,
       email_frequency: freq,
-      in_app_enabled: current?.in_app_enabled ?? true,
-    })
-    setSavingKey(null)
-  }
-
-  async function handleInAppChange(key: string, enabled: boolean) {
-    if (!profile) return
-    setSavingKey(key)
-    const current = prefMap[key]
-    await upsert.mutateAsync({
-      user_id: profile.id,
-      key,
-      email_frequency: current?.email_frequency ?? 'immediate',
-      in_app_enabled: enabled,
     })
     setSavingKey(null)
   }
@@ -163,7 +162,7 @@ export function NotificationPrefsPage() {
       <div>
         <h1 className="text-2xl font-bold">Notification Preferences</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Control which notifications you receive and how they're delivered.
+          In-app notifications (the bell) are always on. Use the controls below to choose how each event is delivered by email.
         </p>
       </div>
 
@@ -172,42 +171,25 @@ export function NotificationPrefsPage() {
         {prefDefs.map(def => {
           const p = prefMap[def.key]
           const emailFreq: EmailFrequency = p?.email_frequency ?? 'immediate'
-          const inApp: boolean = p?.in_app_enabled ?? true
           const saving = savingKey === def.key
 
           return (
-            <div key={def.key} className="rounded-lg border bg-card p-4 space-y-4">
+            <div key={def.key} className="rounded-lg border bg-card p-4 space-y-3">
               <div>
                 <p className="font-medium text-sm">{def.label}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{def.description}</p>
               </div>
 
-              <div className="grid gap-3">
-                {/* In-app toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Bell className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Label className="text-sm cursor-pointer">In-app notifications</Label>
-                  </div>
-                  <Switch
-                    checked={inApp}
-                    disabled={saving}
-                    onCheckedChange={v => handleInAppChange(def.key, v)}
-                  />
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                  <Label className="text-sm">Email</Label>
                 </div>
-
-                {/* Email frequency */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2 pt-1">
-                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Label className="text-sm">Email</Label>
-                  </div>
-                  <FreqSelector
-                    value={emailFreq}
-                    onChange={v => handleFreqChange(def.key, v)}
-                    saving={saving}
-                  />
-                </div>
+                <FreqSelector
+                  value={emailFreq}
+                  onChange={v => handleFreqChange(def.key, v)}
+                  saving={saving}
+                />
               </div>
 
               {saving && (

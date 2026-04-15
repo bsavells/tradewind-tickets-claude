@@ -135,6 +135,8 @@ Deno.serve(async (req) => {
     const emailJobs: { to: string; subject: string; html: string }[] = []
 
     // ── Helper: process a single recipient ──────────────────────────────────────
+    // Note: in_app_enabled is no longer read from prefs — in-app notifications are
+    // always on. The selector only controls email (off/immediate/digest).
     function processRecipient(opts: {
       recipientId: string
       email: string
@@ -143,15 +145,16 @@ Deno.serve(async (req) => {
       title: string
       body: string
       kind: string
+      nullifyTicketId?: boolean  // for ticket_deleted (ticket FK about to disappear)
     }) {
-      const inApp = opts.pref?.in_app_enabled ?? opts.inAppDefault
+      const inApp = true // always on
       const freq = resolveFrequency(opts.pref)
 
       if (inApp) {
         inAppRows.push({
           company_id: ticket.company_id,
           recipient_id: opts.recipientId,
-          ticket_id: ticket.id,
+          ticket_id: (opts.nullifyTicketId ? null : ticket.id) as unknown as string,
           kind: opts.kind,
           title: opts.title,
           body: opts.body,
@@ -225,7 +228,7 @@ Deno.serve(async (req) => {
           .from('notification_prefs')
           .select('user_id, email_enabled, email_frequency, in_app_enabled')
           .in('user_id', adminIds)
-          .eq('key', 'on_submit')
+          .eq('key', 'on_return_request')
 
         const prefMap = new Map(prefs?.map((p) => [p.user_id, p]) ?? [])
         const title = `Return requested for ticket ${ticket.ticket_number}`
@@ -280,7 +283,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── ticket_deleted: notify creator (always — no opt-out) ────────────────────
+    // ── ticket_deleted: notify creator (honours on_delete pref) ─────────────────
     if (event_kind === 'ticket_deleted') {
       if (ticket.created_by && ticket.created_by !== user.id) {
         const { data: creator } = await admin
@@ -290,19 +293,23 @@ Deno.serve(async (req) => {
           .single()
 
         if (creator && creator.active) {
+          const { data: pref } = await admin
+            .from('notification_prefs')
+            .select('email_enabled, email_frequency, in_app_enabled')
+            .eq('user_id', creator.id)
+            .eq('key', 'on_delete')
+            .maybeSingle()
+
           const title = `Ticket ${ticket.ticket_number} has been deleted`
-          inAppRows.push({
-            company_id: ticket.company_id,
-            recipient_id: creator.id,
-            ticket_id: null as unknown as string,
-            kind: event_kind,
+          processRecipient({
+            recipientId: creator.id,
+            email: creator.email,
+            pref: pref ?? undefined,
+            inAppDefault: DEFAULT_ENABLED,
             title,
             body: customerName,
-          })
-          emailJobs.push({
-            to: creator.email,
-            subject: title,
-            html: buildEmailHtml(title, customerName || null, ticket.ticket_number),
+            kind: event_kind,
+            nullifyTicketId: true,
           })
         }
       }

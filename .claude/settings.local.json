@@ -11,7 +11,8 @@
       "Bash(npx tsc:*)",
       "Bash(python -c ':*)",
       "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_deployment_build_logs",
-      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_runtime_logs"
+      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_runtime_logs",
+      "Bash(npx supabase:*)"
     ]
   }
 }

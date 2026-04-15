@@ -16,7 +16,8 @@ import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useSendPas
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
 import { useAuth } from '@/contexts/AuthContext'
-import { useNotificationPrefs, useUpsertNotificationPref } from '@/hooks/useNotifications'
+import { useNotificationPrefs, useUpsertNotificationPref, type EmailFrequency } from '@/hooks/useNotifications'
+import { FreqSelector } from '@/pages/NotificationPrefsPage'
 import type { Database } from '@/lib/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -34,10 +35,14 @@ const editSchema = z.object({
 type EditForm = z.infer<typeof editSchema>
 
 // ── Notification preference rows shown in EditUserDialog ──────────────────────
-const NOTIF_PREFS = [
-  { key: 'on_submit', label: 'New ticket submitted', hint: 'Admins receive this' },
-  { key: 'on_return', label: 'Ticket returned for revision', hint: 'Users receive this' },
-  { key: 'on_finalize', label: 'Ticket finalized', hint: 'Users receive this' },
+const ADMIN_NOTIF_PREFS = [
+  { key: 'on_submit', label: 'New ticket submitted' },
+  { key: 'on_return_request', label: 'Return requested on finalized ticket' },
+]
+const USER_NOTIF_PREFS = [
+  { key: 'on_return', label: 'Ticket returned for revision' },
+  { key: 'on_finalize', label: 'Ticket finalized' },
+  { key: 'on_delete', label: 'Ticket deleted' },
 ]
 
 function EditUserDialog({
@@ -196,36 +201,24 @@ function EditUserDialog({
           {/* Notification preferences */}
           <div className="rounded-md border p-3 space-y-3">
             <div>
-              <p className="text-sm font-medium">Notification Preferences</p>
+              <p className="text-sm font-medium">Email Notification Preferences</p>
               <p className="text-xs text-muted-foreground">
-                Defaults to opted-in. Toggle off to disable for this user.
+                In-app notifications (bell) are always on. Defaults to Immediate email.
               </p>
             </div>
-            <div className="space-y-2">
-              {NOTIF_PREFS.map(({ key, label, hint }) => {
+            <div className="space-y-3">
+              {(role === 'admin' ? ADMIN_NOTIF_PREFS : USER_NOTIF_PREFS).map(({ key, label }) => {
                 const pref = notifPrefs[key]
-                const inApp = pref?.in_app_enabled ?? true
-                const email = pref?.email_enabled ?? true
+                const freq: EmailFrequency = pref?.email_frequency ?? 'immediate'
                 return (
-                  <div key={key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3">
-                    <div>
-                      <p className="text-xs font-medium">{label}</p>
-                      <p className="text-xs text-muted-foreground">{hint}</p>
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[10px] text-muted-foreground">In-app</span>
-                      <Switch
-                        checked={inApp}
-                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: v, email_frequency: email ? 'immediate' : 'off' })}
-                      />
-                    </div>
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className="text-[10px] text-muted-foreground">Email</span>
-                      <Switch
-                        checked={email}
-                        onCheckedChange={v => upsertPref.mutate({ user_id: user.id, key, in_app_enabled: inApp, email_frequency: v ? 'immediate' : 'off' })}
-                      />
-                    </div>
+                  <div key={key} className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium flex-1 min-w-0 truncate">{label}</p>
+                    <FreqSelector
+                      value={freq}
+                      saving={upsertPref.isPending}
+                      size="sm"
+                      onChange={v => upsertPref.mutate({ user_id: user.id, key, email_frequency: v })}
+                    />
                   </div>
                 )
               })}
