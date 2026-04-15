@@ -30,6 +30,5 @@ dist-ssr
 # Supabase local
 supabase/.temp
 
-# Superpowers plans/specs (local dev tooling)
+# Superpowers brainstorm temp files (local dev tooling)
 .superpowers/
-docs/superpowers/
