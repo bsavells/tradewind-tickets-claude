@@ -472,8 +472,9 @@ export function TicketFormPage() {
           <div className="space-y-1.5">
             <Label>Customer *</Label>
             <Select
+              key={`customer-${watch('customer_id') || 'empty'}`}
               value={watch('customer_id')}
-              onValueChange={v => setValue('customer_id', v)}
+              onValueChange={v => setValue('customer_id', v, { shouldDirty: true, shouldValidate: true })}
             >
               <SelectTrigger className={cn(errors.customer_id && 'border-destructive')}>
                 <SelectValue placeholder="Select customer…" />
