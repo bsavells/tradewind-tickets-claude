@@ -12,7 +12,12 @@
       "Bash(python -c ':*)",
       "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_deployment_build_logs",
       "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__get_runtime_logs",
-      "Bash(npx supabase:*)"
+      "Bash(npx supabase:*)",
+      "Bash(bash /c/Users/brian/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh --project-dir '/c/Users/brian/Documents/Claude/Projects/Tradewind Tickets')",
+      "Bash(xargs cat:*)",
+      "Bash(bash scripts/start-server.sh --project-dir \"C:\\\\Users\\\\brian\\\\Documents\\\\Claude\\\\Projects\\\\Tradewind Tickets\")",
+      "mcp__8f546672-0055-4b44-9c48-b40cfab4188e__generate_typescript_types",
+      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__list_projects"
     ]
   }
 }

@@ -290,7 +290,7 @@ export function AdminTicketReviewPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold">{t.ticket_number}</h1>
             <Badge variant={statusVariant(t.status)}>{statusLabel(t.status)}</Badge>
-            {t.is_signed && (
+            {(t as unknown as { is_signed?: boolean }).is_signed && (
               <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50">
                 Signed
               </Badge>
