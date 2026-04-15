@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { useTicket, useSubmitTicket, useRequestReturn, useDeleteTicket } from '@/hooks/useTickets'
 import { PhotoGallery } from '@/components/PhotoGallery'
+import { SignatureSection } from '@/components/SignatureSection'
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
@@ -265,6 +266,16 @@ export function TicketDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Customer Signature */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Customer Signature</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SignatureSection ticketId={t.id} canEdit={t.status !== 'draft'} />
+        </CardContent>
+      </Card>
 
       {/* Photos */}
       <Card>

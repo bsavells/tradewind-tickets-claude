@@ -23,6 +23,7 @@ import {
 import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
 import { useAuth } from '@/contexts/AuthContext'
 import { PhotoUploader } from '@/components/PhotoUploader'
+import { SignatureSection } from '@/components/SignatureSection'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
 import { format } from 'date-fns'
@@ -547,6 +548,16 @@ export function AdminTicketReviewPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Customer Signature */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Customer Signature</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SignatureSection ticketId={t.id} canEdit={true} />
+        </CardContent>
+      </Card>
 
       {/* Photos */}
       <Card>
