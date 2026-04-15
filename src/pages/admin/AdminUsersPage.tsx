@@ -38,11 +38,13 @@ type EditForm = z.infer<typeof editSchema>
 const ADMIN_NOTIF_PREFS = [
   { key: 'on_submit', label: 'New ticket submitted' },
   { key: 'on_return_request', label: 'Return requested on finalized ticket' },
+  { key: 'on_signed', label: 'Ticket signed by customer' },
 ]
 const USER_NOTIF_PREFS = [
   { key: 'on_return', label: 'Ticket returned for revision' },
   { key: 'on_finalize', label: 'Ticket finalized' },
   { key: 'on_delete', label: 'Ticket deleted' },
+  { key: 'on_signed', label: 'Ticket signed by customer' },
 ]
 
 function EditUserDialog({

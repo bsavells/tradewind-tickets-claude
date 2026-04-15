@@ -27,6 +27,11 @@ const ADMIN_PREFS = [
     label: 'Return requested on finalized ticket',
     description: 'When a technician requests that a finalized ticket be reopened for edits.',
   },
+  {
+    key: 'on_signed',
+    label: 'Ticket signed by customer',
+    description: 'When a customer signs a ticket via the signing link or on-site.',
+  },
 ]
 
 const TECH_PREFS = [
@@ -44,6 +49,11 @@ const TECH_PREFS = [
     key: 'on_delete',
     label: 'Ticket deleted',
     description: 'When an admin deletes one of your tickets.',
+  },
+  {
+    key: 'on_signed',
+    label: 'Ticket signed by customer',
+    description: 'When a customer signs a ticket via the signing link or on-site.',
   },
 ]
 
