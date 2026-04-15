@@ -21,6 +21,7 @@ import { AdminClassificationsPage } from '@/pages/admin/AdminClassificationsPage
 import { AdminVehiclesPage } from '@/pages/admin/AdminVehiclesPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
 import { NotificationPrefsPage } from '@/pages/NotificationPrefsPage'
+import { SignTicketPage } from '@/pages/SignTicketPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/sign/:token" element={<SignTicketPage />} />
 
             {/* Protected */}
             <Route element={<ProtectedRoute />}>
