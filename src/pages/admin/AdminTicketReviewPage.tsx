@@ -255,13 +255,15 @@ export function AdminTicketReviewPage() {
   }
 
   async function handleExportPdf() {
+    if (!t) return
     setExportingPdf(true)
     try {
       // Build export data — generate signed URL for customer signature if present
       const exportData = { ...(t as unknown as ExportTicketData) }
-      if (t.ticket_signatures && t.ticket_signatures.length > 0) {
+      const rawSigs = (t as unknown as { ticket_signatures?: { kind: string; signer_name: string | null; signed_at: string; image_url: string }[] }).ticket_signatures
+      if (rawSigs && rawSigs.length > 0) {
         const sigsWithUrls = await Promise.all(
-          t.ticket_signatures.map(async (sig: { kind: string; signer_name: string | null; signed_at: string; image_url: string }) => {
+          rawSigs.map(async (sig) => {
             const { data: signed } = await supabase.storage
               .from('ticket-signatures')
               .createSignedUrl(sig.image_url, 120)
@@ -271,7 +273,7 @@ export function AdminTicketReviewPage() {
         exportData.ticket_signatures = sigsWithUrls
       }
       await exportTicketPdf(exportData)
-      await logExport.mutateAsync({ ticketId: t!.id, format: 'pdf' })
+      await logExport.mutateAsync({ ticketId: t.id, format: 'pdf' })
     } finally {
       setExportingPdf(false)
     }
