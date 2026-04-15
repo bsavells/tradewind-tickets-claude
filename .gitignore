@@ -29,3 +29,7 @@ dist-ssr
 
 # Supabase local
 supabase/.temp
+
+# Superpowers plans/specs (local dev tooling)
+.superpowers/
+docs/superpowers/

@@ -22,6 +22,7 @@ import {
 } from '@/hooks/useTickets'
 import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
 import { useAuth } from '@/contexts/AuthContext'
+import { PhotoUploader } from '@/components/PhotoUploader'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
 import { format } from 'date-fns'
@@ -546,6 +547,20 @@ export function AdminTicketReviewPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Photos */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Photos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PhotoUploader
+            ticketId={t.id}
+            canEdit={!isFinalized}
+            onAutoSave={async () => t.id}
+          />
+        </CardContent>
+      </Card>
 
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 md:relative border-t md:border md:rounded-lg bg-background p-4 flex flex-wrap gap-2 z-10 md:shadow-sm">

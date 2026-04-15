@@ -8,6 +8,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { useTicket, useSubmitTicket, useRequestReturn, useDeleteTicket } from '@/hooks/useTickets'
+import { PhotoGallery } from '@/components/PhotoGallery'
 import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
@@ -264,6 +265,16 @@ export function TicketDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Photos */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Photos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PhotoGallery ticketId={t.id} />
+        </CardContent>
+      </Card>
 
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 md:relative md:bottom-auto border-t md:border-0 bg-background p-4 md:p-0 flex flex-col gap-2 z-10">
