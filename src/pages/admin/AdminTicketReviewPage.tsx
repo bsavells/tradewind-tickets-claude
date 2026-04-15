@@ -193,7 +193,6 @@ export function AdminTicketReviewPage() {
     vehicles.every(v => v.rate != null) &&
     equipment.every(e => e.rate != null)
 
-  const canFinalize = isWritableAdmin && t.status === 'submitted' && pricingComplete
   const canReturn = isWritableAdmin && t.status === 'submitted'
   const canUnfinalize = isWritableAdmin && isFinalized
   const canDelete = isWritableAdmin && !isFinalized
