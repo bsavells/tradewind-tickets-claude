@@ -63,25 +63,29 @@ function PhotoUploaderInner({
     else sessionStorage.removeItem(CAMERA_KEY)
   }
 
-  // On mount/focus: if cameraPending was persisted, restore the placeholder.
-  // If the camera was cancelled (no file after focus), clear it.
+  // When the page resumes from the camera app, restore the pending state
+  // from sessionStorage (React state may have been lost during suspend).
+  // Don't auto-clear on a timer — the file can take 30+ seconds to arrive
+  // on mobile. It clears naturally when handleFiles runs or photos change.
   useEffect(() => {
     function onVisibilityChange() {
       if (document.visibilityState !== 'visible') return
-      const wasPending = sessionStorage.getItem(CAMERA_KEY) === '1'
-      if (!wasPending) return
-      // Re-set React state from sessionStorage (may have been lost during suspend)
-      setCameraPendingState(true)
-      // After a delay, check if a file actually arrived — if not, user cancelled
-      setTimeout(() => {
-        if (cameraInputRef.current && !cameraInputRef.current.files?.length && !uploading) {
-          setCameraPending(false)
-        }
-      }, 2000)
+      if (sessionStorage.getItem(CAMERA_KEY) === '1') {
+        setCameraPendingState(true)
+      }
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => document.removeEventListener('visibilitychange', onVisibilityChange)
-  }, [uploading]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Clear cameraPending when photos array changes (upload completed and query refreshed)
+  const prevPhotoCount = useRef(photos.length)
+  useEffect(() => {
+    if (photos.length > prevPhotoCount.current) {
+      setCameraPending(false)
+    }
+    prevPhotoCount.current = photos.length
+  }, [photos.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const atLimit = photos.length >= MAX_TICKET_PHOTOS
 
