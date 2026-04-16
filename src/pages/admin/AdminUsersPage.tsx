@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Users, Trash2, KeyRound } from 'lucide-react'
+import { Plus, Pencil, Users, Trash2, KeyRound, RotateCcw, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useSendPasswordReset } from '@/hooks/useProfiles'
+import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useReactivateUser, usePermanentlyDeleteUser, useSendPasswordReset } from '@/hooks/useProfiles'
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
 import { useAuth } from '@/contexts/AuthContext'
@@ -240,7 +240,7 @@ function EditUserDialog({
 }
 
 // ---- Disable confirm dialog ----
-function DeleteUserDialog({
+function DisableUserDialog({
   open, onClose, user,
 }: {
   open: boolean
@@ -266,7 +266,7 @@ function DeleteUserDialog({
         <DialogHeader>
           <DialogTitle>Disable User</DialogTitle>
           <DialogDescription>
-            <strong>{user.first_name} {user.last_name}</strong> ({user.email}) will be marked inactive and immediately lose access to the app. Their tickets and data are preserved. You can re-enable them at any time via Edit.
+            <strong>{user.first_name} {user.last_name}</strong> ({user.email}) will be marked inactive and immediately lose access to the app. Their tickets and data are preserved.
           </DialogDescription>
         </DialogHeader>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -274,6 +274,57 @@ function DeleteUserDialog({
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button variant="destructive" onClick={handleDisable} disabled={deleteUser.isPending}>
             {deleteUser.isPending ? 'Disabling…' : 'Disable User'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ---- Permanently delete confirm dialog ----
+function PermanentDeleteDialog({
+  open, onClose, user,
+}: {
+  open: boolean
+  onClose: () => void
+  user: Profile
+}) {
+  const permanentDelete = usePermanentlyDeleteUser()
+  const [error, setError] = useState<string | null>(null)
+  const [confirmText, setConfirmText] = useState('')
+
+  async function handleDelete() {
+    setError(null)
+    try {
+      await permanentDelete.mutateAsync(user.id)
+      onClose()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to delete user')
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => { if (!v) { onClose(); setConfirmText('') } }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Permanently Delete User</DialogTitle>
+          <DialogDescription>
+            This will permanently remove <strong>{user.first_name} {user.last_name}</strong> ({user.email}) from the system. Their login will be deleted. Their existing tickets will be preserved but will no longer be linked to this user. This cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1.5">
+          <Label className="text-sm">Type <strong>DELETE</strong> to confirm</Label>
+          <Input value={confirmText} onChange={e => setConfirmText(e.target.value)} placeholder="DELETE" />
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => { onClose(); setConfirmText('') }}>Cancel</Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={permanentDelete.isPending || confirmText !== 'DELETE'}
+          >
+            {permanentDelete.isPending ? 'Deleting…' : 'Permanently Delete'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -423,9 +474,11 @@ export function AdminUsersPage() {
   if (isError) console.error('[AdminUsersPage] useProfiles error:', error)
   const { data: vehicles = [] } = useVehicles()
   const vehicleMap = useMemo(() => new Map(vehicles.map(v => [v.id, v.label])), [vehicles])
+  const reactivate = useReactivateUser()
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<Profile | null>(null)
-  const [deleting, setDeleting] = useState<Profile | null>(null)
+  const [disabling, setDisabling] = useState<Profile | null>(null)
+  const [permDeleting, setPermDeleting] = useState<Profile | null>(null)
 
   function roleBadge(u: Profile) {
     if (u.role === 'admin') {
@@ -503,15 +556,38 @@ export function AdminUsersPage() {
                         <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setEditing(u)}>
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Button>
-                        {u.id !== currentUser?.id && (
+                        {u.id !== currentUser?.id && u.active && (
                           <Button
                             size="sm"
                             variant="ghost"
                             className="text-destructive hover:text-destructive"
-                            onClick={() => setDeleting(u)}
+                            title="Disable user"
+                            onClick={() => setDisabling(u)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <UserX className="h-3.5 w-3.5" />
                           </Button>
+                        )}
+                        {u.id !== currentUser?.id && !u.active && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-green-600 hover:text-green-700 gap-1.5"
+                              onClick={() => reactivate.mutate(u.id)}
+                              disabled={reactivate.isPending}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" /> Re-enable
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              title="Permanently delete"
+                              onClick={() => setPermDeleting(u)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </TableCell>
@@ -527,8 +603,11 @@ export function AdminUsersPage() {
       {editing && (
         <EditUserDialog open={!!editing} onClose={() => setEditing(null)} user={editing} />
       )}
-      {deleting && (
-        <DeleteUserDialog open={!!deleting} onClose={() => setDeleting(null)} user={deleting} />
+      {disabling && (
+        <DisableUserDialog open={!!disabling} onClose={() => setDisabling(null)} user={disabling} />
+      )}
+      {permDeleting && (
+        <PermanentDeleteDialog open={!!permDeleting} onClose={() => setPermDeleting(null)} user={permDeleting} />
       )}
     </div>
   )

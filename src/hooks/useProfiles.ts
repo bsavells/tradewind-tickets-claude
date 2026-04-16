@@ -79,6 +79,22 @@ export function useDeleteUser() {
   })
 }
 
+export function useReactivateUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (user_id: string) => callManageUser({ action: 'reactivate', user_id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
+export function usePermanentlyDeleteUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (user_id: string) => callManageUser({ action: 'permanent_delete', user_id }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}
+
 export function useSendPasswordReset() {
   return useMutation({
     mutationFn: (email: string) => callManageUser({ action: 'send_reset', email }),
