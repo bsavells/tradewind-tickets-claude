@@ -37,7 +37,7 @@ type EditForm = z.infer<typeof editSchema>
 // ── Notification preference rows shown in EditUserDialog ──────────────────────
 const ADMIN_NOTIF_PREFS = [
   { key: 'on_submit', label: 'New ticket submitted' },
-  { key: 'on_return_request', label: 'Return requested on finalized ticket' },
+  { key: 'on_return_request', label: 'Return requested on submitted ticket' },
   { key: 'on_signed', label: 'Ticket signed by customer' },
 ]
 const USER_NOTIF_PREFS = [

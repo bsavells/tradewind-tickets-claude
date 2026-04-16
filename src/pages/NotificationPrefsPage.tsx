@@ -24,8 +24,8 @@ const ADMIN_PREFS = [
   },
   {
     key: 'on_return_request',
-    label: 'Return requested on finalized ticket',
-    description: 'When a technician requests that a finalized ticket be reopened for edits.',
+    label: 'Return requested on submitted ticket',
+    description: 'When a technician requests that a submitted ticket be reopened for edits.',
   },
   {
     key: 'on_signed',

@@ -131,18 +131,17 @@ Deno.serve(async (req: Request) => {
       }
 
       // signature_tokens has NO ACTION on delete — must be removed first
+      console.log('permanent_delete: clearing signature_tokens for', user_id)
       const { error: sigTokErr } = await adminClient
         .from('signature_tokens').delete().eq('requested_by', user_id)
-      if (sigTokErr) throw sigTokErr
+      if (sigTokErr) { console.error('sigTokErr:', sigTokErr); throw sigTokErr }
 
       // Deleting the auth user cascades to profiles (ON DELETE CASCADE),
-      // which in turn cascades/SET NULLs all other FK references:
-      //   CASCADE:  notifications, notification_prefs, notification_digest_queue
-      //   SET NULL: tickets.created_by, tickets.finalized_by, ticket_labor.user_id,
-      //             ticket_photos.uploaded_by, ticket_audit_log.actor_id,
-      //             ticket_exports.generated_by, vehicles.assigned_user_id
+      // which in turn cascades/SET NULLs all other FK references
+      console.log('permanent_delete: deleting auth user', user_id)
       const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(user_id)
-      if (authDeleteErr) throw authDeleteErr
+      if (authDeleteErr) { console.error('authDeleteErr:', authDeleteErr); throw authDeleteErr }
+      console.log('permanent_delete: success')
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -166,6 +165,7 @@ Deno.serve(async (req: Request) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err: unknown) {
+    console.error('manage-user error:', err)
     const message = err instanceof Error ? err.message : 'Internal error'
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
