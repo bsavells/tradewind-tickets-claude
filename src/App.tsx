@@ -22,6 +22,7 @@ import { AdminVehiclesPage } from '@/pages/admin/AdminVehiclesPage'
 import { NotificationsPage } from '@/pages/NotificationsPage'
 import { NotificationPrefsPage } from '@/pages/NotificationPrefsPage'
 import { SignTicketPage } from '@/pages/SignTicketPage'
+import { UpdateBanner } from '@/components/UpdateBanner'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -41,6 +42,7 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <ScrollToTop />
+          <UpdateBanner />
           <Routes>
             {/* Public */}
             <Route path="/login" element={<LoginPage />} />
