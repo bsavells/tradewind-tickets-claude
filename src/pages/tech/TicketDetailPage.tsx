@@ -110,7 +110,7 @@ export function TicketDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-5 pb-24">
+    <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-5 pb-36">
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/tickets')}>

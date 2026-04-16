@@ -48,6 +48,25 @@ export function SignatureCaptureForm({
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
+        <Label>Signature</Label>
+        {/* Pad comes first so the keyboard is dismissed before signing on mobile */}
+        <div onPointerDown={() => {
+          // Blur any focused input to dismiss the mobile keyboard
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+        }}>
+          <SignaturePad ref={padRef} />
+        </div>
+        <button
+          type="button"
+          onClick={() => padRef.current?.clear()}
+          disabled={submitting}
+          className="text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-40"
+        >
+          Clear
+        </button>
+      </div>
+
+      <div className="space-y-1.5">
         <Label htmlFor="signer-name">Full Name</Label>
         <Input
           id="signer-name"
@@ -57,19 +76,6 @@ export function SignatureCaptureForm({
           disabled={submitting}
           autoComplete="name"
         />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Signature</Label>
-        <SignaturePad ref={padRef} />
-        <button
-          type="button"
-          onClick={() => padRef.current?.clear()}
-          disabled={submitting}
-          className="text-xs text-muted-foreground hover:text-foreground underline disabled:opacity-40"
-        >
-          Clear
-        </button>
       </div>
 
       {error && (
