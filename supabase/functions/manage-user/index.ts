@@ -131,17 +131,14 @@ Deno.serve(async (req: Request) => {
       }
 
       // signature_tokens has NO ACTION on delete — must be removed first
-      console.log('permanent_delete: clearing signature_tokens for', user_id)
-      const { error: sigTokErr } = await adminClient
-        .from('signature_tokens').delete().eq('requested_by', user_id)
-      if (sigTokErr) { console.error('sigTokErr:', sigTokErr); throw sigTokErr }
+      // Manually nullify FKs on tables with RLS policies that block cascade SET NULL
+      await adminClient.from('ticket_audit_log').update({ actor_id: null }).eq('actor_id', user_id)
+      await adminClient.from('signature_tokens').delete().eq('requested_by', user_id)
 
       // Deleting the auth user cascades to profiles (ON DELETE CASCADE),
-      // which in turn cascades/SET NULLs all other FK references
-      console.log('permanent_delete: deleting auth user', user_id)
+      // which cascades/SET NULLs the remaining FK references
       const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(user_id)
-      if (authDeleteErr) { console.error('authDeleteErr:', authDeleteErr); throw authDeleteErr }
-      console.log('permanent_delete: success')
+      if (authDeleteErr) throw authDeleteErr
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
