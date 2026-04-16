@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { wrapEmailHtml, emailDivider, emailNote } from '../_shared/email-template.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -43,25 +44,18 @@ Deno.serve(async (req) => {
       )
     }
 
-    const html = `<!DOCTYPE html>
-<html>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
-  <div style="border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:20px;">
-    <span style="font-size:18px;font-weight:bold;color:#1d4ed8;">Tradewind Work Tickets</span>
-  </div>
-  <h2 style="margin:0 0 8px;">Test notification</h2>
-  <p style="color:#555;margin:0 0 16px;">
-    Hi ${recipient_name}, this is a test email confirming your notification settings are working correctly.
-  </p>
-  <p style="color:#555;margin:0 0 16px;">
-    If you received this, email delivery is configured and active for your account.
-  </p>
-  <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;">
-  <p style="color:#9ca3af;font-size:12px;margin:0;">
-    Sent from Tradewind Work Tickets notification settings.
-  </p>
-</body>
-</html>`
+    const html = wrapEmailHtml(
+      `<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;">Test Notification</h2>
+       <p style="color:#555;margin:0 0 16px;">
+         Hi ${recipient_name}, this is a test email confirming your notification settings are working correctly.
+       </p>
+       <p style="color:#555;margin:0 0 16px;">
+         If you received this, email delivery is configured and active for your account.
+       </p>
+       ${emailDivider()}
+       ${emailNote('Sent from Tradewind Tickets notification settings.')}`,
+      { preheaderText: 'Test email — your notifications are working.' }
+    )
 
     const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',

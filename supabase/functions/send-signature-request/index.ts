@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { wrapEmailHtml, emailButton, emailInfoTable, emailDivider, emailNote } from '../_shared/email-template.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -82,40 +83,20 @@ Deno.serve(async (req) => {
       })
     }
 
-    const html = `<!DOCTYPE html>
-<html>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
-  <div style="border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:24px;">
-    <span style="font-size:18px;font-weight:bold;color:#1d4ed8;">Tradewind Work Tickets</span>
-  </div>
-  <h2 style="margin:0 0 8px;">Signature Required</h2>
-  <p style="color:#555;margin:0 0 16px;">
-    ${companyName} has requested your signature for a completed field service ticket.
-  </p>
-  <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:13px;">
-    <tr>
-      <td style="padding:5px 0;color:#888;width:100px;">Ticket</td>
-      <td style="padding:5px 0;font-weight:bold;">${ticket.ticket_number}</td>
-    </tr>
-    <tr>
-      <td style="padding:5px 0;color:#888;">Date</td>
-      <td style="padding:5px 0;">${workDate}</td>
-    </tr>
-  </table>
-  <div style="text-align:center;margin:28px 0;">
-    <a href="${signingUrl}"
-       style="background:#1d4ed8;color:#fff;text-decoration:none;padding:13px 36px;
-              border-radius:6px;font-weight:bold;font-size:15px;display:inline-block;">
-      Sign Now
-    </a>
-  </div>
-  <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;">
-  <p style="color:#9ca3af;font-size:12px;margin:0;">
-    This link expires in ${SIGNATURE_TOKEN_EXPIRY_HOURS} hours and can only be used once.
-    If you did not expect this request, please contact ${companyName} directly.
-  </p>
-</body>
-</html>`
+    const html = wrapEmailHtml(
+      `<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;">Signature Required</h2>
+       <p style="color:#555;margin:0 0 20px;">
+         ${companyName} has requested your signature for a completed field service ticket.
+       </p>
+       ${emailInfoTable([
+         { label: 'Ticket', value: ticket.ticket_number },
+         { label: 'Date', value: workDate },
+       ])}
+       ${emailButton('Sign Now', signingUrl)}
+       ${emailDivider()}
+       ${emailNote(`This link expires in ${SIGNATURE_TOKEN_EXPIRY_HOURS} hours and can only be used once. If you did not expect this request, please contact ${companyName} directly.`)}`,
+      { preheaderText: `${companyName} is requesting your signature for ticket ${ticket.ticket_number}` }
+    )
 
     const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',

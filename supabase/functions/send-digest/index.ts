@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { wrapEmailHtml, emailDigestSection, emailDivider, emailNote } from '../_shared/email-template.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -78,39 +79,25 @@ function buildDigestHtml(firstName: string, items: DigestItem[]): string {
     const label = KIND_LABELS[kind] ?? kind
     const rows = kindItems.map(i =>
       `<tr>
-        <td style="padding:6px 0;border-bottom:1px solid #f3f4f6;">
+        <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#222;">
           <strong>${i.ticket_number}</strong>
-          ${i.body ? ` — ${i.body}` : ''}
+          ${i.body ? ` &mdash; ${i.body}` : ''}
         </td>
       </tr>`
     ).join('')
-    return `
-      <h3 style="margin:20px 0 8px;font-size:14px;color:#374151;text-transform:uppercase;letter-spacing:0.05em;">
-        ${label} (${kindItems.length})
-      </h3>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;">
-        ${rows}
-      </table>`
+    return emailDigestSection(label, kindItems.length, rows)
   }).join('')
 
-  return `<!DOCTYPE html>
-<html>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
-  <div style="border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:20px;">
-    <span style="font-size:18px;font-weight:bold;color:#1d4ed8;">Tradewind Work Tickets</span>
-  </div>
-  <h2 style="margin:0 0 4px;">Daily Digest</h2>
-  <p style="color:#6b7280;margin:0 0 16px;font-size:14px;">
-    Hi ${firstName}, here's a summary of your ticket activity.
-  </p>
-  ${sections}
-  <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;">
-  <p style="color:#9ca3af;font-size:12px;margin:0;">
-    You're receiving this daily digest from Tradewind Work Tickets.
-    To switch to immediate alerts or turn off email, update your notification preferences in the app.
-  </p>
-</body>
-</html>`
+  return wrapEmailHtml(
+    `<h2 style="margin:0 0 4px;font-size:20px;font-weight:700;">Daily Digest</h2>
+     <p style="color:#6b7280;margin:0 0 16px;font-size:14px;">
+       Hi ${firstName}, here's a summary of your ticket activity.
+     </p>
+     ${sections}
+     ${emailDivider()}
+     ${emailNote("You're receiving this daily digest from Tradewind Tickets. To switch to immediate alerts or turn off email, update your notification preferences in the app.")}`,
+    { preheaderText: `${items.length} ticket update${items.length === 1 ? '' : 's'} today` }
+  )
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────────

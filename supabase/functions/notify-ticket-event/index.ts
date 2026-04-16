@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { wrapEmailHtml, emailDivider, emailNote } from '../_shared/email-template.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -51,21 +52,14 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
 }
 
 function buildEmailHtml(title: string, body: string | null, ticketNumber: string): string {
-  return `<!DOCTYPE html>
-<html>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
-  <div style="border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:20px;">
-    <span style="font-size:18px;font-weight:bold;color:#1d4ed8;">Tradewind Work Tickets</span>
-  </div>
-  <h2 style="margin:0 0 8px;">${title}</h2>
-  ${body ? `<p style="color:#555;margin:0 0 16px;">${body}</p>` : ''}
-  <p style="margin:0 0 4px;"><strong>Ticket:</strong> ${ticketNumber}</p>
-  <hr style="margin:24px 0;border:none;border-top:1px solid #e5e7eb;">
-  <p style="color:#9ca3af;font-size:12px;margin:0;">
-    You're receiving this because you have notifications enabled in Tradewind Work Tickets.
-  </p>
-</body>
-</html>`
+  return wrapEmailHtml(
+    `<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;">${title}</h2>
+     ${body ? `<p style="color:#555;margin:0 0 16px;">${body}</p>` : ''}
+     <p style="margin:0 0 4px;font-size:14px;"><strong>Ticket:</strong> ${ticketNumber}</p>
+     ${emailDivider()}
+     ${emailNote("You're receiving this because you have notifications enabled in Tradewind Tickets.")}`,
+    { preheaderText: `${title} — ${ticketNumber}` }
+  )
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────────

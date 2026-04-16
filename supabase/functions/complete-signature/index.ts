@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { wrapEmailHtml, emailDivider, emailNote } from '../_shared/email-template.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -147,19 +148,16 @@ Deno.serve(async (req) => {
           }
 
           // immediate
-          const html = `<!DOCTYPE html>
-<html>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#111;">
-  <div style="border-bottom:3px solid #1d4ed8;padding-bottom:12px;margin-bottom:24px;">
-    <span style="font-size:18px;font-weight:bold;color:#1d4ed8;">Tradewind Work Tickets</span>
-  </div>
-  <h2 style="margin:0 0 8px;">Ticket Signed</h2>
-  <p style="color:#555;margin:0 0 16px;">
-    Hi ${profile.first_name}, ticket <strong>${ticket.ticket_number}</strong>
-    has been signed by <strong>${signer_name}</strong>.
-  </p>
-</body>
-</html>`
+          const html = wrapEmailHtml(
+            `<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;">Ticket Signed</h2>
+             <p style="color:#555;margin:0 0 16px;">
+               Hi ${profile.first_name}, ticket <strong>${ticket.ticket_number}</strong>
+               has been signed by <strong>${signer_name}</strong>.
+             </p>
+             ${emailDivider()}
+             ${emailNote("You're receiving this because you have notifications enabled in Tradewind Tickets.")}`,
+            { preheaderText: `Ticket ${ticket.ticket_number} signed by ${signer_name}` }
+          )
 
           await fetch('https://api.sendgrid.com/v3/mail/send', {
             method: 'POST',
