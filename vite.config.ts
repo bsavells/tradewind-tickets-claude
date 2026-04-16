@@ -4,15 +4,17 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
-/** Writes public/version.json at build time with the current timestamp. */
+// Single timestamp shared by the JS bundle and version.json
+const BUILD_TIME = new Date().toISOString()
+
+/** Writes dist/version.json at build time with the shared timestamp. */
 function versionPlugin(): Plugin {
   return {
     name: 'version-json',
     writeBundle() {
-      const version = { buildTime: new Date().toISOString() }
       fs.writeFileSync(
         path.resolve(__dirname, 'dist/version.json'),
-        JSON.stringify(version),
+        JSON.stringify({ buildTime: BUILD_TIME }),
       )
     },
   }
@@ -21,7 +23,7 @@ function versionPlugin(): Plugin {
 export default defineConfig({
   plugins: [react(), tailwindcss(), versionPlugin()],
   define: {
-    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    __BUILD_TIME__: JSON.stringify(BUILD_TIME),
   },
   resolve: {
     alias: {
