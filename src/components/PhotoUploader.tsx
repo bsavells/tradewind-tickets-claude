@@ -47,6 +47,7 @@ function PhotoUploaderInner({
   const [dragOver, setDragOver] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [pendingPreview, setPendingPreview] = useState<{ name: string; url: string } | null>(null)
   const [captionErrors, setCaptionErrors] = useState<Record<string, string>>({})
 
   const atLimit = photos.length >= MAX_TICKET_PHOTOS
@@ -90,6 +91,10 @@ function PhotoUploaderInner({
     const tid = await resolveTicketId()
     if (!tid) return
 
+    // Create a local preview so the user sees immediate feedback
+    const previewUrl = URL.createObjectURL(file)
+    setPendingPreview({ name: file.name, url: previewUrl })
+
     setUploading(true)
     try {
       await uploadPhoto.mutateAsync({ ticketId: tid, file })
@@ -97,6 +102,8 @@ function PhotoUploaderInner({
       setUploadError('Upload failed. Please try again.')
     } finally {
       setUploading(false)
+      setPendingPreview(null)
+      URL.revokeObjectURL(previewUrl)
       // Reset file inputs so the same file can be re-selected after an error
       if (fileInputRef.current) fileInputRef.current.value = ''
       if (cameraInputRef.current) cameraInputRef.current.value = ''
@@ -237,6 +244,26 @@ function PhotoUploaderInner({
         <div className="flex items-start gap-2 text-destructive text-xs">
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           {uploadError}
+        </div>
+      )}
+
+      {/* Uploading preview */}
+      {pendingPreview && (
+        <div className="flex gap-3 items-center p-3 rounded-lg border border-primary/30 bg-primary/5 animate-pulse">
+          <div className="w-14 h-14 rounded-md overflow-hidden bg-muted shrink-0 relative">
+            <img
+              src={pendingPreview.url}
+              alt="Uploading"
+              className="w-full h-full object-cover opacity-60"
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">{pendingPreview.name}</p>
+            <p className="text-xs text-muted-foreground">Uploading…</p>
+          </div>
         </div>
       )}
 
