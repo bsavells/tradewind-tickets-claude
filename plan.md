@@ -252,14 +252,24 @@ All Tickets list with filters, Ticket Review page with per-line pricing override
 ### Phase 4 — QoL Improvements (COMPLETE)
 Contact picker on requestor field, 15-min time increments, ticket deletion (tech: own drafts; admin: non-finalized), admin nav includes "My Tickets" link.
 
-### Phase 5 — Customer Signatures (NEXT)
-Canvas-based signature capture on ticket detail page using `signature_pad`. Stores PNG to Supabase Storage `ticket-signatures` bucket. Two signature slots: customer (tech-captured) and supervisor (optional). Signature displayed on ticket detail/review. Signed-at timestamp auto-captured.
+### Phase 5 — Customer Signatures (COMPLETE)
+Canvas-based signature capture on ticket detail/edit pages. Stores PNG to Supabase Storage `ticket-signatures` bucket. On-site capture via `SignaturePad` component or remote capture via emailed signing link (48h expiry token). Signature displayed with signer name + timestamp. Clear & re-sign option. Signed badge on ticket list cards and detail headers. Signature image embedded in PDF exports. Notification prefs for `on_signed` event.
 
-### Phase 6 — PDF / XLSX Export
-Supabase Edge Function `export-ticket`. PDF via headless Chromium rendering a styled HTML ticket template. XLSX via `exceljs` mimicking the Excel ticket layout. Exports stored in `ticket-exports` bucket. Signed download URL returned. Admin review page gets Export button (PDF + XLSX). Exports logged to audit trail.
+### Phase 6 — PDF / XLSX Export (COMPLETE — PDF only)
+Client-side PDF generation via `jsPDF`. Ticket data rendered with signature images (fetched via signed storage URLs). Admin review page Export PDF button (gated to finalized tickets only). Pricing completeness required before finalize.
 
-### Phase 7 — Notifications
-SendGrid integration for email. In-app notification system using Supabase Realtime. Admin toggle for submission emails. Tech opt-in for return notifications. Bell icon + unread badge in AppShell header.
+### Phase 7 — Notifications (COMPLETE)
+SendGrid integration for immediate emails + daily digest. In-app notification system using Supabase Realtime. Per-event email preferences (off / immediate / daily digest) for both admins and techs. Configurable digest hour. Branded email templates matching Tradewind Controls website identity. Bell icon + unread badge in AppShell header. Test email delivery feature.
 
-### Phase 8 — Polish
+### Phase 8 — Admin Enhancements (COMPLETE)
+User management: disable/re-enable users. Update available banner (polls version.json). Finalize gated on pricing completeness. Sidebar cleanup. App branding on all outgoing emails (gradient accent bar, TRADEWIND TICKETS text logo, branded footer).
+
+### Phase 9 — Polish (NEXT)
 PWA install prompt + manifest, service worker for asset caching, offline draft hardening (retry queue on reconnect), accessibility audit (keyboard nav, ARIA labels, focus management), bundle code-splitting, Lighthouse score targets.
+
+---
+
+## Backlog / Known Issues
+
+- [ ] **Permanent user delete** — Implemented in manage-user edge function (`permanent_delete` action) + UI (`PermanentDeleteDialog` in AdminUsersPage, currently hidden). Fails due to Postgres FK cascade conflicts with RLS policies. Error: `referential integrity query on "profiles" from constraint "ticket_audit_log_actor_id_fkey" gave unexpected result — due to a rule having rewritten the query.` Fix: either manually nullify ALL FK references before deleting (bypassing cascade entirely), or create a `SECURITY DEFINER` Postgres function that temporarily disables RLS on affected tables during the delete.
+- [ ] **XLSX export** — Phase 6 only shipped PDF. XLSX export via `exceljs` still planned.
