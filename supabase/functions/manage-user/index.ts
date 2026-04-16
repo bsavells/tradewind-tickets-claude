@@ -130,19 +130,17 @@ Deno.serve(async (req: Request) => {
         })
       }
 
-      // Nullify ticket references so tickets are preserved
-      await adminClient
-        .from('tickets')
-        .update({ created_by: null })
-        .eq('created_by', user_id)
+      // Nullify all FK references to this user so tickets/data are preserved
+      await adminClient.from('tickets').update({ created_by: null }).eq('created_by', user_id)
+      await adminClient.from('tickets').update({ finalized_by: null }).eq('finalized_by', user_id)
+      await adminClient.from('ticket_labor').update({ user_id: null }).eq('user_id', user_id)
+      await adminClient.from('ticket_photos').update({ uploaded_by: null }).eq('uploaded_by', user_id)
+      await adminClient.from('ticket_audit_log').update({ actor_id: null }).eq('actor_id', user_id)
+      await adminClient.from('ticket_exports').update({ generated_by: null }).eq('generated_by', user_id)
+      await adminClient.from('vehicles').update({ assigned_user_id: null }).eq('assigned_user_id', user_id)
 
-      // Nullify ticket_labor user_id references
-      await adminClient
-        .from('ticket_labor')
-        .update({ user_id: null })
-        .eq('user_id', user_id)
-
-      // Remove notification prefs + notifications for this user
+      // Delete owned rows (signature tokens, notifications, prefs, digest queue)
+      await adminClient.from('signature_tokens').delete().eq('requested_by', user_id)
       await adminClient.from('notification_prefs').delete().eq('user_id', user_id)
       await adminClient.from('notifications').delete().eq('recipient_id', user_id)
       await adminClient.from('notification_digest_queue').delete().eq('recipient_id', user_id)
