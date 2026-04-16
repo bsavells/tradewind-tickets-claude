@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Upload, Camera, Trash2, ImageIcon, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -47,8 +47,25 @@ function PhotoUploaderInner({
   const [dragOver, setDragOver] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [cameraPending, setCameraPending] = useState(false)
   const [pendingPreview, setPendingPreview] = useState<{ name: string; url: string } | null>(null)
   const [captionErrors, setCaptionErrors] = useState<Record<string, string>>({})
+  const previewRef = useRef<HTMLDivElement>(null)
+
+  // Clear cameraPending if user cancels the camera (window regains focus with no file)
+  useEffect(() => {
+    if (!cameraPending) return
+    function onFocus() {
+      // Small delay — onChange fires slightly after focus on some devices
+      setTimeout(() => {
+        if (cameraInputRef.current && !cameraInputRef.current.files?.length) {
+          setCameraPending(false)
+        }
+      }, 500)
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [cameraPending])
 
   const atLimit = photos.length >= MAX_TICKET_PHOTOS
 
@@ -90,8 +107,11 @@ function PhotoUploaderInner({
 
     // Show preview immediately — before resolveTicketId which may autosave
     const previewUrl = URL.createObjectURL(file)
+    setCameraPending(false)
     setPendingPreview({ name: file.name || 'Photo', url: previewUrl })
     setUploading(true)
+    // Scroll the preview into view after render
+    setTimeout(() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
 
     const tid = await resolveTicketId()
     if (!tid) {
@@ -204,7 +224,14 @@ function PhotoUploaderInner({
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={e => e.target.files && handleFiles(e.target.files)}
+        onChange={e => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleFiles(e.target.files)
+          } else {
+            // User cancelled the camera — clear pending state
+            setCameraPending(false)
+          }
+        }}
       />
 
       {/* Action buttons */}
@@ -226,8 +253,8 @@ function PhotoUploaderInner({
             variant="outline"
             size="sm"
             className="gap-1.5 flex-1"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={uploading}
+            onClick={() => { setCameraPending(true); cameraInputRef.current?.click() }}
+            disabled={uploading || cameraPending}
           >
             <Camera className="h-3.5 w-3.5" />
             Camera
@@ -252,9 +279,22 @@ function PhotoUploaderInner({
         </div>
       )}
 
-      {/* Uploading preview */}
+      {/* Camera pending — shown instantly when Camera is tapped, before file is available */}
+      {cameraPending && !pendingPreview && (
+        <div ref={previewRef} className="flex gap-3 items-center p-3 rounded-lg border border-primary/30 bg-primary/5 animate-pulse">
+          <div className="w-14 h-14 rounded-md bg-muted shrink-0 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium">Processing photo…</p>
+            <p className="text-xs text-muted-foreground">This may take a moment</p>
+          </div>
+        </div>
+      )}
+
+      {/* Uploading preview — shown once file is available with local thumbnail */}
       {pendingPreview && (
-        <div className="flex gap-3 items-center p-3 rounded-lg border border-primary/30 bg-primary/5 animate-pulse">
+        <div ref={previewRef} className="flex gap-3 items-center p-3 rounded-lg border border-primary/30 bg-primary/5 animate-pulse">
           <div className="w-14 h-14 rounded-md overflow-hidden bg-muted shrink-0 relative">
             <img
               src={pendingPreview.url}
