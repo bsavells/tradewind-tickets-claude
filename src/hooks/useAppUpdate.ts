@@ -7,7 +7,7 @@ const POLL_INTERVAL = 60_000 // check every 60 seconds
 
 export function useAppUpdate() {
   const [updateAvailable, setUpdateAvailable] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval>>()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     async function check() {
