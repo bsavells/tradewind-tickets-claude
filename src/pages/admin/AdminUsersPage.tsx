@@ -568,26 +568,15 @@ export function AdminUsersPage() {
                           </Button>
                         )}
                         {u.id !== currentUser?.id && !u.active && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-green-600 hover:text-green-700 gap-1.5"
-                              onClick={() => reactivate.mutate(u.id)}
-                              disabled={reactivate.isPending}
-                            >
-                              <RotateCcw className="h-3.5 w-3.5" /> Re-enable
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              title="Permanently delete"
-                              onClick={() => setPermDeleting(u)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-green-600 hover:text-green-700 gap-1.5"
+                            onClick={() => reactivate.mutate(u.id)}
+                            disabled={reactivate.isPending}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Re-enable
+                          </Button>
                         )}
                       </div>
                     </TableCell>
