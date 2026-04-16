@@ -130,29 +130,17 @@ Deno.serve(async (req: Request) => {
         })
       }
 
-      // Nullify all FK references to this user so tickets/data are preserved
-      await adminClient.from('tickets').update({ created_by: null }).eq('created_by', user_id)
-      await adminClient.from('tickets').update({ finalized_by: null }).eq('finalized_by', user_id)
-      await adminClient.from('ticket_labor').update({ user_id: null }).eq('user_id', user_id)
-      await adminClient.from('ticket_photos').update({ uploaded_by: null }).eq('uploaded_by', user_id)
-      await adminClient.from('ticket_audit_log').update({ actor_id: null }).eq('actor_id', user_id)
-      await adminClient.from('ticket_exports').update({ generated_by: null }).eq('generated_by', user_id)
-      await adminClient.from('vehicles').update({ assigned_user_id: null }).eq('assigned_user_id', user_id)
+      // signature_tokens has NO ACTION on delete — must be removed first
+      const { error: sigTokErr } = await adminClient
+        .from('signature_tokens').delete().eq('requested_by', user_id)
+      if (sigTokErr) throw sigTokErr
 
-      // Delete owned rows (signature tokens, notifications, prefs, digest queue)
-      await adminClient.from('signature_tokens').delete().eq('requested_by', user_id)
-      await adminClient.from('notification_prefs').delete().eq('user_id', user_id)
-      await adminClient.from('notifications').delete().eq('recipient_id', user_id)
-      await adminClient.from('notification_digest_queue').delete().eq('recipient_id', user_id)
-
-      // Delete the profile row
-      const { error: profileDeleteErr } = await adminClient
-        .from('profiles')
-        .delete()
-        .eq('id', user_id)
-      if (profileDeleteErr) throw profileDeleteErr
-
-      // Delete the auth user
+      // Deleting the auth user cascades to profiles (ON DELETE CASCADE),
+      // which in turn cascades/SET NULLs all other FK references:
+      //   CASCADE:  notifications, notification_prefs, notification_digest_queue
+      //   SET NULL: tickets.created_by, tickets.finalized_by, ticket_labor.user_id,
+      //             ticket_photos.uploaded_by, ticket_audit_log.actor_id,
+      //             ticket_exports.generated_by, vehicles.assigned_user_id
       const { error: authDeleteErr } = await adminClient.auth.admin.deleteUser(user_id)
       if (authDeleteErr) throw authDeleteErr
 
