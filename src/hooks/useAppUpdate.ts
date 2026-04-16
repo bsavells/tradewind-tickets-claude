@@ -34,7 +34,7 @@ export function useAppUpdate() {
     window.addEventListener('focus', onFocus)
 
     return () => {
-      clearInterval(intervalRef.current)
+      if (intervalRef.current) clearInterval(intervalRef.current)
       window.removeEventListener('focus', onFocus)
     }
   }, [])
