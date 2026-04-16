@@ -265,7 +265,13 @@ SendGrid integration for immediate emails + daily digest. In-app notification sy
 User management: disable/re-enable users. Update available banner (polls version.json). Finalize gated on pricing completeness. Sidebar cleanup. App branding on all outgoing emails (gradient accent bar, TRADEWIND TICKETS text logo, branded footer).
 
 ### Phase 9 — Polish (NEXT)
-PWA install prompt + manifest, service worker for asset caching, offline draft hardening (retry queue on reconnect), accessibility audit (keyboard nav, ARIA labels, focus management), bundle code-splitting, Lighthouse score targets.
+- **App branding** — Apply the Tradewind Controls brand identity (Dodger Blue `#1d90ff`, navy/cyan gradients, "Efficiency—Solved." tagline) across the app UI, matching the emails shipped in Phase 8. Includes updating the primary color theme, login/auth pages, AppShell header/sidebar treatment, a proper logo, favicon, and PWA icons.
+- **PWA install prompt + manifest** — `manifest.json`, install prompt UX, proper icon set.
+- **Service worker for asset caching** — offline-first shell, background sync.
+- **Offline draft hardening** — retry queue on reconnect for ticket saves and photo uploads.
+- **Accessibility audit** — keyboard nav, ARIA labels, focus management, color contrast.
+- **Bundle code-splitting** — route-level `React.lazy()` + lazy-load heavy libs like `jsPDF`.
+- **Lighthouse score targets** — set goals for Performance / Accessibility / Best Practices / SEO and fix flagged issues.
 
 ---
 
