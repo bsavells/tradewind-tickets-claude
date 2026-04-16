@@ -94,6 +94,28 @@ export function useUploadSignature() {
   })
 }
 
+// ── Clear an existing signature ──────────────────────────────────────────────
+export function useClearSignature() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ ticketId }: { ticketId: string }) => {
+      // Delete the DB row (storage file can stay — it'll be overwritten on re-sign)
+      const { error } = await supabase
+        .from('ticket_signatures')
+        .delete()
+        .eq('ticket_id', ticketId)
+        .eq('kind', 'customer')
+      if (error) throw error
+    },
+    onSuccess: (_data, { ticketId }) => {
+      qc.invalidateQueries({ queryKey: ['ticket-signature', ticketId] })
+      qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+      qc.invalidateQueries({ queryKey: ['tickets'] })
+    },
+  })
+}
+
 // ── Request a remote signature token via edge function ────────────────────────
 export function useRequestSignatureToken() {
   const { session } = useAuth()
