@@ -47,25 +47,41 @@ function PhotoUploaderInner({
   const [dragOver, setDragOver] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [cameraPending, setCameraPending] = useState(false)
   const [pendingPreview, setPendingPreview] = useState<{ name: string; url: string } | null>(null)
   const [captionErrors, setCaptionErrors] = useState<Record<string, string>>({})
   const previewRef = useRef<HTMLDivElement>(null)
 
-  // Clear cameraPending if user cancels the camera (window regains focus with no file)
+  // cameraPending persists in sessionStorage so it survives the browser
+  // freezing/suspending the page while the native camera app is open.
+  const CAMERA_KEY = 'tw-camera-pending'
+  const [cameraPending, setCameraPendingState] = useState(
+    () => sessionStorage.getItem(CAMERA_KEY) === '1'
+  )
+  function setCameraPending(v: boolean) {
+    setCameraPendingState(v)
+    if (v) sessionStorage.setItem(CAMERA_KEY, '1')
+    else sessionStorage.removeItem(CAMERA_KEY)
+  }
+
+  // On mount/focus: if cameraPending was persisted, restore the placeholder.
+  // If the camera was cancelled (no file after focus), clear it.
   useEffect(() => {
-    if (!cameraPending) return
-    function onFocus() {
-      // Small delay — onChange fires slightly after focus on some devices
+    function onVisibilityChange() {
+      if (document.visibilityState !== 'visible') return
+      const wasPending = sessionStorage.getItem(CAMERA_KEY) === '1'
+      if (!wasPending) return
+      // Re-set React state from sessionStorage (may have been lost during suspend)
+      setCameraPendingState(true)
+      // After a delay, check if a file actually arrived — if not, user cancelled
       setTimeout(() => {
-        if (cameraInputRef.current && !cameraInputRef.current.files?.length) {
+        if (cameraInputRef.current && !cameraInputRef.current.files?.length && !uploading) {
           setCameraPending(false)
         }
-      }, 500)
+      }, 2000)
     }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [cameraPending])
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [uploading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const atLimit = photos.length >= MAX_TICKET_PHOTOS
 
