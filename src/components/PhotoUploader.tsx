@@ -88,14 +88,19 @@ function PhotoUploaderInner({
       return
     }
 
-    const tid = await resolveTicketId()
-    if (!tid) return
-
-    // Create a local preview so the user sees immediate feedback
+    // Show preview immediately — before resolveTicketId which may autosave
     const previewUrl = URL.createObjectURL(file)
-    setPendingPreview({ name: file.name, url: previewUrl })
-
+    setPendingPreview({ name: file.name || 'Photo', url: previewUrl })
     setUploading(true)
+
+    const tid = await resolveTicketId()
+    if (!tid) {
+      setUploading(false)
+      setPendingPreview(null)
+      URL.revokeObjectURL(previewUrl)
+      return
+    }
+
     try {
       await uploadPhoto.mutateAsync({ ticketId: tid, file })
     } catch {
