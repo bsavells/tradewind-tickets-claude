@@ -173,6 +173,10 @@ Deno.serve(async (req: Request) => {
     // Supabase's inviteUserByEmail succeeds when the target user exists but
     // is not yet email-confirmed (i.e. they haven't accepted the invite).
     // It errors for already-confirmed users — we surface a clean message.
+    //
+    // Business-logic errors are returned with status 200 and an `error` field
+    // so the client's data.error check picks them up (supabase-js doesn't
+    // reliably expose the body for non-2xx responses).
     if (action === 'resend_invite') {
       const { email } = body
       const { data: profileByEmail } = await adminClient
@@ -191,7 +195,7 @@ Deno.serve(async (req: Request) => {
           ? 'This user has already accepted their invitation. Use "Send Password Reset" instead.'
           : msg
         return new Response(JSON.stringify({ error: friendly }), {
-          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
       return new Response(JSON.stringify({ success: true }), {

@@ -51,7 +51,21 @@ async function callManageUser(body: Record<string, unknown>) {
   // Prefer the detailed error from the Edge Function response body over the
   // generic "Edge Function returned a non-2xx status code" from the client.
   if (data?.error) throw new Error(data.error)
-  if (error) throw error
+  if (error) {
+    // supabase-js wraps non-2xx responses in a FunctionsHttpError. The original
+    // Response is on `.context` — try to read the body for the detailed message.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx = (error as any).context as Response | undefined
+    if (ctx && typeof ctx.json === 'function') {
+      try {
+        const body = await ctx.clone().json()
+        if (body?.error) throw new Error(body.error)
+      } catch {
+        // fall through to generic throw below
+      }
+    }
+    throw error
+  }
   return data
 }
 
