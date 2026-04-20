@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
@@ -130,6 +131,8 @@ export function AdminTicketReviewPage() {
   const [unfinalizeOpen, setUnfinalizeOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [includePhotos, setIncludePhotos] = useState(true)
 
   useEffect(() => {
     if (!t) return
@@ -266,11 +269,17 @@ export function AdminTicketReviewPage() {
     navigate('/admin/tickets')
   }
 
+  function openExportDialog() {
+    setIncludePhotos(true) // default to including photos when they exist
+    setExportOpen(true)
+  }
+
   async function handleExportPdf() {
     if (!t) return
+    setExportOpen(false)
     setExportingPdf(true)
     try {
-      // Build export data — generate signed URL for customer signature if present
+      // Build export data — generate signed URLs for signatures
       const exportData = { ...(t as unknown as ExportTicketData) }
       const rawSigs = (t as unknown as { ticket_signatures?: { kind: string; signer_name: string | null; signed_at: string; image_url: string }[] }).ticket_signatures
       if (rawSigs && rawSigs.length > 0) {
@@ -284,12 +293,32 @@ export function AdminTicketReviewPage() {
         )
         exportData.ticket_signatures = sigsWithUrls
       }
-      await exportTicketPdf(exportData)
+
+      // Photos — only fetch signed URLs if the admin opted to include them
+      if (includePhotos) {
+        const rawPhotos = (t as unknown as { ticket_photos?: { id: string; file_url: string; caption: string | null }[] }).ticket_photos
+        if (rawPhotos && rawPhotos.length > 0) {
+          const photosWithUrls = await Promise.all(
+            rawPhotos.map(async (p) => {
+              const { data: signed } = await supabase.storage
+                .from('ticket-photos')
+                .createSignedUrl(p.file_url, 300)
+              return { ...p, signedUrl: signed?.signedUrl }
+            })
+          )
+          exportData.ticket_photos = photosWithUrls
+        }
+      }
+
+      await exportTicketPdf(exportData, { includePhotos })
       await logExport.mutateAsync({ ticketId: t.id, format: 'pdf' })
     } finally {
       setExportingPdf(false)
     }
   }
+
+  const photoCount =
+    (t as unknown as { ticket_photos?: { id: string }[] }).ticket_photos?.length ?? 0
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-5 pb-32">
@@ -649,7 +678,7 @@ export function AdminTicketReviewPage() {
               size="sm"
               className="gap-1.5"
               disabled={exportingPdf}
-              onClick={handleExportPdf}
+              onClick={openExportDialog}
             >
               {exportingPdf
                 ? <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -704,6 +733,53 @@ export function AdminTicketReviewPage() {
             <Button variant="outline" onClick={() => setReturnOpen(false)}>Cancel</Button>
             <Button onClick={handleReturn} disabled={returnTicket.isPending}>
               {returnTicket.isPending ? 'Returning…' : 'Return Ticket'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export PDF options */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export PDF</DialogTitle>
+            <DialogDescription>
+              Generate a PDF of this ticket for sharing or printing.
+            </DialogDescription>
+          </DialogHeader>
+
+          {photoCount > 0 ? (
+            <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="h-4 w-4 text-[var(--color-tw-blue)]" />
+                  <Label htmlFor="include-photos" className="text-sm font-medium cursor-pointer">
+                    Include photos
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Append {photoCount} photo{photoCount === 1 ? '' : 's'} as additional page{photoCount === 1 ? '' : 's'}.
+                </p>
+              </div>
+              <Switch
+                id="include-photos"
+                checked={includePhotos}
+                onCheckedChange={setIncludePhotos}
+              />
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground italic">
+              No photos are attached to this ticket.
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setExportOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleExportPdf} className="gap-2">
+              <FileDown className="h-4 w-4" />
+              Export PDF
             </Button>
           </DialogFooter>
         </DialogContent>

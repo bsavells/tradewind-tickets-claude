@@ -59,6 +59,17 @@ export interface ExportTicketData {
     image_url?: string
     signedUrl?: string
   }[]
+  ticket_photos?: {
+    id: string
+    file_url: string
+    caption: string | null
+    signedUrl?: string
+  }[]
+}
+
+export interface ExportTicketOptions {
+  /** When true, appends each photo as an additional page in the PDF */
+  includePhotos?: boolean
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -102,7 +113,10 @@ function fmt$(n: number | null): string {
 }
 
 // ── Main export function ──────────────────────────────────────────────────────
-export async function exportTicketPdf(t: ExportTicketData): Promise<void> {
+export async function exportTicketPdf(
+  t: ExportTicketData,
+  options: ExportTicketOptions = {},
+): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
   const pageW = doc.internal.pageSize.getWidth()
 
@@ -386,6 +400,96 @@ export async function exportTicketPdf(t: ExportTicketData): Promise<void> {
     try { supervisorSigDateStr = format(new Date(supervisorSig.signed_at), 'MMM d, yyyy h:mm a') } catch { /* ignore */ }
     doc.text(supervisorSig.signer_name ?? '', PAGE_MARGIN + 24, y)
     doc.text(supervisorSigDateStr, pageW - PAGE_MARGIN, y, { align: 'right' })
+  }
+
+  // ── Photo pages (optional) ──────────────────────────────────────────────────
+  if (options.includePhotos && t.ticket_photos && t.ticket_photos.length > 0) {
+    const pageH = doc.internal.pageSize.getHeight()
+    const contentW = pageW - PAGE_MARGIN * 2
+
+    for (let i = 0; i < t.ticket_photos.length; i++) {
+      const photo = t.ticket_photos[i]
+      if (!photo.signedUrl) continue
+
+      // Fetch the image and determine its dimensions
+      let base64: string | null = null
+      let imgW = 0
+      let imgH = 0
+      let mimeType: 'PNG' | 'JPEG' = 'JPEG'
+      try {
+        const response = await fetch(photo.signedUrl)
+        const blob = await response.blob()
+        if (blob.type.includes('png')) mimeType = 'PNG'
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = reject
+          reader.readAsDataURL(blob)
+        })
+
+        // Get natural dimensions to preserve aspect ratio
+        const dims = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+          const img = new Image()
+          img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+          img.onerror = reject
+          img.src = `data:${blob.type};base64,${base64}`
+        })
+        imgW = dims.w
+        imgH = dims.h
+      } catch {
+        continue // skip this photo on failure
+      }
+
+      if (!base64) continue
+
+      doc.addPage()
+
+      // Page header: title + caption
+      doc.setFontSize(9)
+      doc.setTextColor(...TITLE_COLOR)
+      doc.setFont('helvetica', 'bold')
+      doc.text(
+        `PHOTO ${i + 1} OF ${t.ticket_photos.length}`,
+        PAGE_MARGIN,
+        PAGE_MARGIN + 5,
+      )
+      doc.setTextColor(0, 0, 0)
+      doc.setFont('helvetica', 'normal')
+
+      // Caption — under title, above image
+      const captionY = PAGE_MARGIN + 10
+      if (photo.caption) {
+        doc.setFontSize(10)
+        doc.text(photo.caption, PAGE_MARGIN, captionY)
+      }
+
+      // Fit image in available area (below caption, above footer)
+      const footerReserve = 10
+      const topReserve = (photo.caption ? captionY + 6 : PAGE_MARGIN + 8)
+      const availH = pageH - topReserve - footerReserve
+      const availW = contentW
+
+      // Maintain aspect ratio
+      const aspect = imgW / imgH
+      let drawW = availW
+      let drawH = drawW / aspect
+      if (drawH > availH) {
+        drawH = availH
+        drawW = drawH * aspect
+      }
+      // Center horizontally
+      const drawX = PAGE_MARGIN + (availW - drawW) / 2
+      const drawY = topReserve
+
+      doc.addImage(
+        `data:image/${mimeType.toLowerCase()};base64,${base64}`,
+        mimeType,
+        drawX,
+        drawY,
+        drawW,
+        drawH,
+      )
+    }
   }
 
   // ── Footer on every page ─────────────────────────────────────────────────────
