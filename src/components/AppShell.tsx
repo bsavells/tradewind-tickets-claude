@@ -11,6 +11,7 @@ import {
   Settings,
   Bell,
   BellRing,
+  BarChart3,
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -73,6 +74,7 @@ export function AppShell() {
   const adminNav = [
     { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/admin/tickets', icon: ClipboardList, label: 'All Tickets' },
+    { to: '/admin/reports', icon: BarChart3, label: 'Reports' },
     { to: '/tickets', icon: FileText, label: 'My Tickets' },
     { to: '/notifications', icon: Bell, label: 'Notifications' },
     { to: '/notification-settings', icon: BellRing, label: 'Notification Settings' },

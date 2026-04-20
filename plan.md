@@ -264,9 +264,32 @@ SendGrid integration for immediate emails + daily digest. In-app notification sy
 ### Phase 8 — Admin Enhancements (COMPLETE)
 User management: disable/re-enable users. Update available banner (polls version.json). Finalize gated on pricing completeness. Sidebar cleanup. App branding on all outgoing emails (gradient accent bar, TRADEWIND TICKETS text logo, branded footer).
 
-### Phase 9 — Polish (NEXT)
-- **App branding** — Apply the Tradewind Controls brand identity (Dodger Blue `#1d90ff`, navy/cyan gradients, "Efficiency—Solved." tagline) across the app UI, matching the emails shipped in Phase 8. Includes updating the primary color theme, login/auth pages, AppShell header/sidebar treatment, a proper logo, favicon, and PWA icons.
-- **PWA install prompt + manifest** — `manifest.json`, install prompt UX, proper icon set.
+### Phase 9 — App Branding (COMPLETE)
+Applied the Tradewind Controls brand identity across the app UI to match the emails shipped in Phase 8:
+- New primary color theme (Dodger Blue `#1d90ff`, navy `#0a1e3d`, cyan `#00d4ff` accent)
+- Montserrat (display) + Libre Franklin (body) via Google Fonts
+- Custom geometric TradewindLogo SVG + Wordmark component with navy→cyan→blue gradient
+- Signature 3px gradient accent bar on sidebar, auth cards, mobile header, KPI cards
+- Rebuilt login / forgot-password / reset-password pages with blueprint grid + atmospheric glow
+- Sidebar redesigned with active-nav cyan stripe treatment, mist-tinted user card
+- New favicon.svg + PWA manifest.json with navy theme color
+- Photo count + signed status badges now visible on all ticket list cards
+- Activity Log moved to bottom of ticket review (after photos/signature)
+- Original theme preserved at `src/themes/default-backup/` for easy revert
+
+### Phase 10 — Admin Reports (COMPLETE)
+Dedicated `/admin/reports` page for aggregate ticket analytics:
+- Filter bar: date range (with presets: This Week / This Month / Last Month / This Quarter / YTD), multi-select customer, multi-select technician, status chip toggles
+- 4 KPI cards: Tickets, Grand Total, Total Hours, Active Techs
+- Status Mix strip with colored badges
+- Hours-by-Technician × Week grid with per-row and per-column totals, overtime (>40h) highlighting
+- Filtered ticket table (click row → ticket review)
+- Filters serialized to URL query string for shareable links
+- Client-side aggregation via `src/lib/reportUtils.ts` (pure helpers) + `src/hooks/useReports.ts`
+- New `MultiSelect` primitive at `src/components/MultiSelect.tsx` for compact multi-value filters
+
+### Phase 11 — Polish (NEXT)
+- **PWA install prompt** — actual install prompt UX on top of the manifest already shipped in Phase 9.
 - **Service worker for asset caching** — offline-first shell, background sync.
 - **Offline draft hardening** — retry queue on reconnect for ticket saves and photo uploads.
 - **Accessibility audit** — keyboard nav, ARIA labels, focus management, color contrast.
@@ -278,5 +301,8 @@ User management: disable/re-enable users. Update available banner (polls version
 ## Backlog / Known Issues
 
 - [ ] **Permanent user delete** — Implemented in manage-user edge function (`permanent_delete` action) + UI (`PermanentDeleteDialog` in AdminUsersPage, currently hidden). Fails due to Postgres FK cascade conflicts with RLS policies. Error: `referential integrity query on "profiles" from constraint "ticket_audit_log_actor_id_fkey" gave unexpected result — due to a rule having rewritten the query.` Fix: either manually nullify ALL FK references before deleting (bypassing cascade entirely), or create a `SECURITY DEFINER` Postgres function that temporarily disables RLS on affected tables during the delete.
-- [ ] **XLSX export** — Phase 6 only shipped PDF. XLSX export via `exceljs` still planned.
+- [ ] **XLSX single-ticket export button** — `src/lib/exportTicketXlsx.ts` is implemented but not wired to any UI. Needs an "Export XLSX" button alongside the existing "Export PDF" on the admin ticket review page.
+- [ ] **Reports: PDF export** — export the filtered Reports view (KPIs + hours grid + ticket table) as a single PDF. User confirmed this is secondary to the on-screen visualization (which shipped in Phase 10).
+- [ ] **Reports: bulk PDF export** — export a filtered set of tickets as a ZIP of per-ticket PDFs. Useful for sending a batch to a customer.
+- [ ] **Camera photo upload placeholder** — placeholder doesn't survive the native camera round-trip on Android. SessionStorage + `visibilitychange` approach attempted but unreliable. Possible fixes: in-app camera via `getUserMedia`, service worker coordination, or top-level toast outside the component tree.
 - [ ] **Camera photo upload placeholder** — The "Processing photo…" placeholder works for gallery file picks but not for camera captures on mobile. SessionStorage persistence and visibilitychange listeners were attempted but the placeholder still doesn't survive the native camera round-trip on Android. The current implementation is in `PhotoUploader.tsx` (`cameraPending` state + `sessionStorage`). Root cause likely: the browser fully reconstructs the page (not just suspends it) when returning from the camera intent, and the hidden `<input>` onChange takes 20-45s to fire. Possible approaches: (1) move to a `BroadcastChannel`/`ServiceWorker` approach, (2) use a fullscreen in-app camera via `getUserMedia` instead of the native camera intent, (3) accept the delay and just show a top-level toast/banner outside the component tree.

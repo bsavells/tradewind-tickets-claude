@@ -14,6 +14,7 @@ import { TicketDetailPage } from '@/pages/tech/TicketDetailPage'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboardPage'
 import { AdminTicketsPage } from '@/pages/admin/AdminTicketsPage'
 import { AdminTicketReviewPage } from '@/pages/admin/AdminTicketReviewPage'
+import { AdminReportsPage } from '@/pages/admin/AdminReportsPage'
 import { AdminCustomersPage } from '@/pages/admin/AdminCustomersPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 import { AdminSettingsPage } from '@/pages/admin/AdminSettingsPage'
@@ -70,6 +71,7 @@ export default function App() {
                   <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                   <Route path="/admin/tickets" element={<AdminTicketsPage />} />
                   <Route path="/admin/tickets/:id" element={<AdminTicketReviewPage />} />
+                  <Route path="/admin/reports" element={<AdminReportsPage />} />
                   <Route path="/admin/customers" element={<AdminCustomersPage />} />
                   <Route path="/admin/users" element={<AdminUsersPage />} />
                   <Route path="/admin/vehicles" element={<AdminVehiclesPage />} />
