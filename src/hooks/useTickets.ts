@@ -69,11 +69,15 @@ export function useMyTickets() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tickets')
-        .select('*, customers(name), ticket_audit_log(action, occurred_at)')
+        .select('*, customers(name), ticket_audit_log(action, occurred_at), ticket_photos(id)')
         .eq('created_by', profile!.id)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as (Ticket & { customers: { name: string }; ticket_audit_log: { action: string; occurred_at: string }[] })[]
+      return data as (Ticket & {
+        customers: { name: string }
+        ticket_audit_log: { action: string; occurred_at: string }[]
+        ticket_photos: { id: string }[]
+      })[]
     },
     enabled: !!profile,
     refetchInterval: 2 * 60 * 1000, // silent 2-min poll catches any missed Realtime events
@@ -88,7 +92,7 @@ export function useAllTickets(statusFilter?: TicketStatus) {
     queryFn: async () => {
       let q = supabase
         .from('tickets')
-        .select('*, customers(name), profiles!tickets_created_by_fkey(first_name, last_name), ticket_audit_log(action, occurred_at)')
+        .select('*, customers(name), profiles!tickets_created_by_fkey(first_name, last_name), ticket_audit_log(action, occurred_at), ticket_photos(id)')
         .eq('company_id', profile!.company_id)
         .order('created_at', { ascending: false })
       if (statusFilter) q = q.eq('status', statusFilter)
@@ -97,6 +101,7 @@ export function useAllTickets(statusFilter?: TicketStatus) {
       return data as (Ticket & {
         customers: { name: string }
         profiles: { first_name: string; last_name: string }
+        ticket_photos: { id: string }[]
       })[]
     },
     enabled: !!profile,

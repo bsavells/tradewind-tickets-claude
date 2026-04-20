@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FileText, ChevronRight, Send, Trash2, RefreshCw } from 'lucide-react'
+import { Plus, FileText, ChevronRight, Send, Trash2, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
@@ -27,7 +27,7 @@ function TicketRow({
   onSubmit,
   onDelete,
 }: {
-  ticket: Ticket
+  ticket: Ticket & { ticket_photos?: { id: string }[] }
   customerName: string
   auditLog: AuditEntry[]
   onSelect: () => void
@@ -65,6 +65,16 @@ function TicketRow({
           {ticket.is_signed && (
             <Badge variant="outline" className="text-xs h-4 px-1.5 text-green-700 border-green-300 bg-green-50">
               Signed
+            </Badge>
+          )}
+          {ticket.ticket_photos && ticket.ticket_photos.length > 0 && (
+            <Badge
+              variant="outline"
+              className="text-xs h-4 px-1.5 gap-1 text-[var(--color-tw-blue)] border-blue-200 bg-blue-50"
+              title={`${ticket.ticket_photos.length} photo${ticket.ticket_photos.length === 1 ? '' : 's'} attached`}
+            >
+              <ImageIcon className="h-2.5 w-2.5" />
+              {ticket.ticket_photos.length}
             </Badge>
           )}
         </div>

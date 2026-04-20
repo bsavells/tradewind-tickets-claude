@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ClipboardList, Search, ChevronRight, FileText, RefreshCw, FileDown, RotateCcw, CheckCircle, Trash2 } from 'lucide-react'
+import { ClipboardList, Search, ChevronRight, FileText, RefreshCw, FileDown, RotateCcw, CheckCircle, Trash2, Image as ImageIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -262,6 +262,16 @@ export function AdminTicketsPage() {
                       {t.is_signed && (
                         <Badge variant="outline" className="text-xs h-4 px-1.5 text-green-700 border-green-300 bg-green-50">
                           Signed
+                        </Badge>
+                      )}
+                      {t.ticket_photos && t.ticket_photos.length > 0 && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs h-4 px-1.5 gap-1 text-[var(--color-tw-blue)] border-blue-200 bg-blue-50"
+                          title={`${t.ticket_photos.length} photo${t.ticket_photos.length === 1 ? '' : 's'} attached`}
+                        >
+                          <ImageIcon className="h-2.5 w-2.5" />
+                          {t.ticket_photos.length}
                         </Badge>
                       )}
                     </div>

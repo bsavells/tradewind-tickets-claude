@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ClipboardList, CheckCircle, Clock, FileText, ChevronRight, RefreshCw } from 'lucide-react'
+import { ClipboardList, CheckCircle, Clock, FileText, ChevronRight, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -208,6 +208,16 @@ export function AdminDashboardPage() {
                         {t.is_signed && (
                           <Badge variant="outline" className="text-xs h-4 px-1.5 text-green-700 border-green-300 bg-green-50">
                             Signed
+                          </Badge>
+                        )}
+                        {t.ticket_photos && t.ticket_photos.length > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-xs h-4 px-1.5 gap-1 text-[var(--color-tw-blue)] border-blue-200 bg-blue-50"
+                            title={`${t.ticket_photos.length} photo${t.ticket_photos.length === 1 ? '' : 's'} attached`}
+                          >
+                            <ImageIcon className="h-2.5 w-2.5" />
+                            {t.ticket_photos.length}
                           </Badge>
                         )}
                       </div>

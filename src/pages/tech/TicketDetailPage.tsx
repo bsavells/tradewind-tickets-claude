@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Pencil, Send, RotateCcw, Clock, Trash2, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, Pencil, Send, RotateCcw, Clock, Trash2, TriangleAlert, Image as ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -125,6 +125,19 @@ export function TicketDetailPage() {
                 Signed
               </Badge>
             )}
+            {(() => {
+              const photoCount = (t as unknown as { ticket_photos?: { id: string }[] }).ticket_photos?.length ?? 0
+              return photoCount > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="gap-1 text-[var(--color-tw-blue)] border-blue-200 bg-blue-50"
+                  title={`${photoCount} photo${photoCount === 1 ? '' : 's'} attached`}
+                >
+                  <ImageIcon className="h-3 w-3" />
+                  {photoCount}
+                </Badge>
+              ) : null
+            })()}
             {t.has_post_finalize_changes && <Badge variant="warning">Changes since export</Badge>}
           </div>
           <p className="text-xs text-muted-foreground">{t.customers?.name}</p>

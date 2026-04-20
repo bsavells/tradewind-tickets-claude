@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2, TriangleAlert, FileDown } from 'lucide-react'
+import { ArrowLeft, Check, RotateCcw, Clock, Save, Lock, Trash2, TriangleAlert, FileDown, Image as ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -307,6 +307,19 @@ export function AdminTicketReviewPage() {
                 Signed
               </Badge>
             )}
+            {(() => {
+              const photoCount = (t as unknown as { ticket_photos?: { id: string }[] }).ticket_photos?.length ?? 0
+              return photoCount > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="gap-1 text-[var(--color-tw-blue)] border-blue-200 bg-blue-50"
+                  title={`${photoCount} photo${photoCount === 1 ? '' : 's'} attached`}
+                >
+                  <ImageIcon className="h-3 w-3" />
+                  {photoCount}
+                </Badge>
+              ) : null
+            })()}
             {returnRequested && (
               <Badge variant="warning" className="gap-1">
                 <TriangleAlert className="h-3 w-3" /> Return Requested
