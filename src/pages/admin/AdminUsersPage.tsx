@@ -2,8 +2,9 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Users, KeyRound, RotateCcw, UserX, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Plus, Pencil, Users, KeyRound, RotateCcw, UserX } from 'lucide-react'
+import { SortableTableHeader } from '@/components/SortableTableHeader'
+import { useTableSort, cmpString, cmpBool } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -470,7 +471,6 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
 
 // ---- Sorting ----
 type SortKey = 'name' | 'email' | 'role' | 'classification' | 'vehicle' | 'active'
-type SortDir = 'asc' | 'desc'
 
 /** Stable numeric rank for roles (admin writable > admin readonly > user). */
 function roleRank(u: Profile): number {
@@ -491,18 +491,7 @@ export function AdminUsersPage() {
   const [disabling, setDisabling] = useState<Profile | null>(null)
   const [permDeleting, setPermDeleting] = useState<Profile | null>(null)
 
-  // Default: sort alphabetically by name ascending
-  const [sortKey, setSortKey] = useState<SortKey>('name')
-  const [sortDir, setSortDir] = useState<SortDir>('asc')
-
-  function handleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortKey(key)
-      setSortDir('asc')
-    }
-  }
+  const { sortKey, sortDir, handleSort } = useTableSort<SortKey>('name', 'asc')
 
   const sortedUsers = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1
@@ -511,39 +500,33 @@ export function AdminUsersPage() {
       let cmp = 0
       switch (sortKey) {
         case 'name':
-          cmp =
-            (a.last_name ?? '').localeCompare(b.last_name ?? '', undefined, { sensitivity: 'base' }) ||
-            (a.first_name ?? '').localeCompare(b.first_name ?? '', undefined, { sensitivity: 'base' })
+          cmp = cmpString(a.last_name, b.last_name) || cmpString(a.first_name, b.first_name)
           break
         case 'email':
-          cmp = (a.email ?? '').localeCompare(b.email ?? '', undefined, { sensitivity: 'base' })
+          cmp = cmpString(a.email, b.email)
           break
         case 'role':
           cmp = roleRank(a) - roleRank(b)
           break
         case 'classification': {
-          const aName = (a as unknown as { classifications: { name: string } | null }).classifications?.name ?? ''
-          const bName = (b as unknown as { classifications: { name: string } | null }).classifications?.name ?? ''
-          cmp = aName.localeCompare(bName, undefined, { sensitivity: 'base' })
+          const aName = (a as unknown as { classifications: { name: string } | null }).classifications?.name
+          const bName = (b as unknown as { classifications: { name: string } | null }).classifications?.name
+          cmp = cmpString(aName, bName)
           break
         }
         case 'vehicle': {
-          const aLabel = a.default_vehicle_id ? vehicleMap.get(a.default_vehicle_id) ?? '' : ''
-          const bLabel = b.default_vehicle_id ? vehicleMap.get(b.default_vehicle_id) ?? '' : ''
-          cmp = aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' })
+          const aLabel = a.default_vehicle_id ? vehicleMap.get(a.default_vehicle_id) : undefined
+          const bLabel = b.default_vehicle_id ? vehicleMap.get(b.default_vehicle_id) : undefined
+          cmp = cmpString(aLabel, bLabel)
           break
         }
         case 'active':
-          // Active (true) sorts before inactive (false) in asc
-          cmp = (a.active ? 0 : 1) - (b.active ? 0 : 1)
+          cmp = cmpBool(a.active, b.active)
           break
       }
       if (cmp !== 0) return cmp * dir
       // Tiebreaker: alphabetical by last, first
-      const lastCmp =
-        (a.last_name ?? '').localeCompare(b.last_name ?? '', undefined, { sensitivity: 'base' }) ||
-        (a.first_name ?? '').localeCompare(b.first_name ?? '', undefined, { sensitivity: 'base' })
-      return lastCmp
+      return cmpString(a.last_name, b.last_name) || cmpString(a.first_name, b.first_name)
     })
     return arr
   }, [users, sortKey, sortDir, vehicleMap])
@@ -557,28 +540,6 @@ export function AdminUsersPage() {
     return <Badge variant="secondary">User</Badge>
   }
 
-  function SortHeader({ k, label, className }: { k: SortKey; label: string; className?: string }) {
-    const isActive = sortKey === k
-    const Icon = !isActive ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
-    return (
-      <TableHead className={className}>
-        <button
-          type="button"
-          onClick={() => handleSort(k)}
-          className="inline-flex items-center gap-1 hover:text-[var(--color-tw-navy)] transition-colors group"
-          aria-label={`Sort by ${label}${isActive ? ` (${sortDir})` : ''}`}
-        >
-          {label}
-          <Icon
-            className={cn(
-              'h-3 w-3 transition-colors',
-              isActive ? 'text-[var(--color-tw-blue)]' : 'text-muted-foreground/40 group-hover:text-muted-foreground',
-            )}
-          />
-        </button>
-      </TableHead>
-    )
-  }
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -612,12 +573,12 @@ export function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <SortHeader k="name" label="Name" />
-                  <SortHeader k="email" label="Email" className="hidden md:table-cell" />
-                  <SortHeader k="role" label="Role" />
-                  <SortHeader k="classification" label="Classification" className="hidden sm:table-cell" />
-                  <SortHeader k="vehicle" label="Vehicle" className="hidden lg:table-cell" />
-                  <SortHeader k="active" label="Active" />
+                  <SortableTableHeader columnKey="name" label="Name" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableTableHeader columnKey="email" label="Email" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
+                  <SortableTableHeader columnKey="role" label="Role" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableTableHeader columnKey="classification" label="Classification" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                  <SortableTableHeader columnKey="vehicle" label="Vehicle" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden lg:table-cell" />
+                  <SortableTableHeader columnKey="active" label="Active" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
                   <TableHead className="w-28" />
                 </TableRow>
               </TableHeader>

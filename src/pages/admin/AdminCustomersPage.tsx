@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,6 +17,8 @@ import {
   useCustomers, useUpsertCustomer, useToggleCustomerActive,
   useUpsertContact, useDeleteContact,
 } from '@/hooks/useCustomers'
+import { SortableTableHeader } from '@/components/SortableTableHeader'
+import { useTableSort, cmpString, cmpBool, cmpNumber } from '@/hooks/useTableSort'
 import type { Database } from '@/lib/database.types'
 
 type Customer = Database['public']['Tables']['customers']['Row']
@@ -241,12 +243,33 @@ function ContactsPanel({ customer }: { customer: Customer & { customer_contacts:
 }
 
 // ---- Main page ----
+type CustomerSortKey = 'name' | 'address' | 'contacts' | 'active'
+
 export function AdminCustomersPage() {
   const { data: customers = [], isLoading } = useCustomers()
   const toggleActive = useToggleCustomerActive()
   const [addOpen, setAddOpen] = useState(false)
   const [editing, setEditing] = useState<Customer | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
+
+  const { sortKey, sortDir, handleSort } = useTableSort<CustomerSortKey>('name', 'asc')
+
+  const sortedCustomers = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    const arr = [...customers]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case 'name': cmp = cmpString(a.name, b.name); break
+        case 'address': cmp = cmpString(a.address, b.address); break
+        case 'contacts': cmp = cmpNumber(a.customer_contacts.length, b.customer_contacts.length); break
+        case 'active': cmp = cmpBool(a.active, b.active); break
+      }
+      if (cmp !== 0) return cmp * dir
+      return cmpString(a.name, b.name) // stable tiebreaker
+    })
+    return arr
+  }, [customers, sortKey, sortDir])
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -275,15 +298,15 @@ export function AdminCustomersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Address</TableHead>
-                  <TableHead className="hidden sm:table-cell">Contacts</TableHead>
-                  <TableHead>Active</TableHead>
+                  <SortableTableHeader columnKey="name" label="Name" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableTableHeader columnKey="address" label="Address" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
+                  <SortableTableHeader columnKey="contacts" label="Contacts" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} className="hidden sm:table-cell" />
+                  <SortableTableHeader columnKey="active" label="Active" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
                   <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map(c => (
+                {sortedCustomers.map(c => (
                   <>
                     <TableRow
                       key={c.id}

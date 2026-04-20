@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Truck } from 'lucide-react'
+import { Plus, Pencil, Truck, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { useTableSort, cmpString, cmpNumber } from '@/hooks/useTableSort'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -320,6 +322,17 @@ function VehicleCard({ v, assigneeName, onEdit, onToggle }: {
   )
 }
 
+type VehicleSortKey = 'label' | 'truck_number' | 'year' | 'mileage' | 'rate' | 'assignee'
+
+const VEHICLE_SORT_OPTIONS: { key: VehicleSortKey; label: string }[] = [
+  { key: 'label', label: 'Label' },
+  { key: 'truck_number', label: 'Truck #' },
+  { key: 'year', label: 'Year' },
+  { key: 'mileage', label: 'Mileage' },
+  { key: 'rate', label: 'Rate' },
+  { key: 'assignee', label: 'Assignee' },
+]
+
 export function AdminVehiclesPage() {
   const { data: vehicles = [], isLoading } = useVehicles()
   const { data: users = [] } = useProfiles()
@@ -332,8 +345,38 @@ export function AdminVehiclesPage() {
     [users]
   )
 
-  const active = vehicles.filter(v => v.active)
-  const inactive = vehicles.filter(v => !v.active)
+  const { sortKey, sortDir, handleSort } = useTableSort<VehicleSortKey>('label', 'asc')
+
+  const compare = (a: Vehicle, b: Vehicle): number => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    let cmp = 0
+    switch (sortKey) {
+      case 'label': cmp = cmpString(a.label, b.label); break
+      case 'truck_number': cmp = cmpString(a.truck_number, b.truck_number); break
+      case 'year': cmp = cmpNumber(a.year, b.year); break
+      case 'mileage': cmp = cmpNumber(a.current_mileage, b.current_mileage); break
+      case 'rate': cmp = cmpNumber(Number(a.default_mileage_rate), Number(b.default_mileage_rate)); break
+      case 'assignee': {
+        const aName = a.assigned_user_id ? userMap.get(a.assigned_user_id) : undefined
+        const bName = b.assigned_user_id ? userMap.get(b.assigned_user_id) : undefined
+        cmp = cmpString(aName, bName)
+        break
+      }
+    }
+    if (cmp !== 0) return cmp * dir
+    return cmpString(a.label, b.label) // stable tiebreaker
+  }
+
+  const active = useMemo(
+    () => vehicles.filter(v => v.active).sort(compare),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vehicles, sortKey, sortDir, userMap],
+  )
+  const inactive = useMemo(
+    () => vehicles.filter(v => !v.active).sort(compare),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vehicles, sortKey, sortDir, userMap],
+  )
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -346,6 +389,39 @@ export function AdminVehiclesPage() {
           <Plus className="h-4 w-4" /> Add Vehicle
         </Button>
       </div>
+
+      {/* Sort bar */}
+      {!isLoading && vehicles.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="tw-label">Sort by:</span>
+          {VEHICLE_SORT_OPTIONS.map(opt => {
+            const isActive = sortKey === opt.key
+            const Icon = !isActive ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => handleSort(opt.key)}
+                className={cn(
+                  'text-xs px-2.5 py-1 rounded-md border inline-flex items-center gap-1 transition-colors',
+                  isActive
+                    ? 'bg-[var(--color-tw-navy)] border-[var(--color-tw-navy)] text-white'
+                    : 'bg-card hover:border-[var(--color-tw-blue)]/50',
+                )}
+                aria-label={`Sort by ${opt.label}${isActive ? ` (${sortDir})` : ''}`}
+              >
+                {opt.label}
+                <Icon
+                  className={cn(
+                    'h-3 w-3',
+                    isActive ? 'text-[var(--color-tw-cyan)]' : 'text-muted-foreground/40',
+                  )}
+                />
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">

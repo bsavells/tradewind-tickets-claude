@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,6 +11,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useClassifications, useUpsertClassification, useToggleClassificationActive } from '@/hooks/useClassifications'
+import { SortableTableHeader } from '@/components/SortableTableHeader'
+import { useTableSort, cmpString, cmpBool, cmpNumber } from '@/hooks/useTableSort'
 import type { Database } from '@/lib/database.types'
 
 type Classification = Database['public']['Tables']['classifications']['Row']
@@ -93,11 +95,32 @@ function ClassificationDialog({
   )
 }
 
+type ClassSortKey = 'name' | 'reg_rate' | 'ot_rate' | 'active'
+
 export function AdminClassificationsPage() {
   const { data: classifications = [], isLoading } = useClassifications()
   const toggleActive = useToggleClassificationActive()
   const [addOpen, setAddOpen] = useState(false)
   const [editing, setEditing] = useState<Classification | null>(null)
+
+  const { sortKey, sortDir, handleSort } = useTableSort<ClassSortKey>('name', 'asc')
+
+  const sortedClassifications = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    const arr = [...classifications]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case 'name': cmp = cmpString(a.name, b.name); break
+        case 'reg_rate': cmp = cmpNumber(Number(a.default_reg_rate), Number(b.default_reg_rate)); break
+        case 'ot_rate': cmp = cmpNumber(Number(a.default_ot_rate), Number(b.default_ot_rate)); break
+        case 'active': cmp = cmpBool(a.active, b.active); break
+      }
+      if (cmp !== 0) return cmp * dir
+      return cmpString(a.name, b.name)
+    })
+    return arr
+  }, [classifications, sortKey, sortDir])
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -126,15 +149,15 @@ export function AdminClassificationsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Reg Rate</TableHead>
-                  <TableHead>OT Rate</TableHead>
-                  <TableHead>Active</TableHead>
+                  <SortableTableHeader columnKey="name" label="Name" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableTableHeader columnKey="reg_rate" label="Reg Rate" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableTableHeader columnKey="ot_rate" label="OT Rate" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
+                  <SortableTableHeader columnKey="active" label="Active" activeKey={sortKey} activeDir={sortDir} onSort={handleSort} />
                   <TableHead className="w-20" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {classifications.map(c => (
+                {sortedClassifications.map(c => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
                     <TableCell>${Number(c.default_reg_rate).toFixed(2)}/hr</TableCell>
