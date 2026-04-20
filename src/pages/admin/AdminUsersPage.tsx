@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Users, KeyRound, RotateCcw, UserX } from 'lucide-react'
+import { Plus, Pencil, Users, KeyRound, RotateCcw, UserX, Mail, AlertCircle } from 'lucide-react'
 import { SortableTableHeader } from '@/components/SortableTableHeader'
 import { useTableSort, cmpString, cmpBool } from '@/hooks/useTableSort'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useReactivateUser, usePermanentlyDeleteUser, useSendPasswordReset } from '@/hooks/useProfiles'
+import { useProfiles, useUpdateProfile, useCreateUser, useDeleteUser, useReactivateUser, usePermanentlyDeleteUser, useSendPasswordReset, useResendInvite } from '@/hooks/useProfiles'
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
 import { useAuth } from '@/contexts/AuthContext'
@@ -58,9 +58,12 @@ function EditUserDialog({
 }) {
   const update = useUpdateProfile()
   const sendReset = useSendPasswordReset()
+  const resendInvite = useResendInvite()
   const { data: classifications = [] } = useClassifications()
   const { data: vehicles = [] } = useVehicles()
   const [resetSent, setResetSent] = useState(false)
+  const [inviteSent, setInviteSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
   const { data: notifPrefs = {} } = useNotificationPrefs(user.id)
   const upsertPref = useUpsertNotificationPref()
 
@@ -91,8 +94,25 @@ function EditUserDialog({
   }
 
   async function handleSendReset() {
-    await sendReset.mutateAsync(user.email)
-    setResetSent(true)
+    setEmailError(null)
+    setInviteSent(false)
+    try {
+      await sendReset.mutateAsync(user.email)
+      setResetSent(true)
+    } catch (e) {
+      setEmailError(e instanceof Error ? e.message : 'Failed to send password reset.')
+    }
+  }
+
+  async function handleResendInvite() {
+    setEmailError(null)
+    setResetSent(false)
+    try {
+      await resendInvite.mutateAsync(user.email)
+      setInviteSent(true)
+    } catch (e) {
+      setEmailError(e instanceof Error ? e.message : 'Failed to resend invitation.')
+    }
   }
 
   return (
@@ -184,22 +204,51 @@ function EditUserDialog({
             <Label htmlFor="active">Account active</Label>
           </div>
 
-          <div className="rounded-md border p-3 flex items-center justify-between gap-3">
+          <div className="rounded-md border p-3 space-y-2">
             <div>
-              <p className="text-sm font-medium">Password Reset</p>
-              <p className="text-xs text-muted-foreground">Send a reset email to this user.</p>
+              <p className="text-sm font-medium">Account Email</p>
+              <p className="text-xs text-muted-foreground">
+                Resend the invitation (if not yet accepted) or send a password-reset link.
+              </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5 shrink-0"
-              onClick={handleSendReset}
-              disabled={sendReset.isPending || resetSent}
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-              {resetSent ? 'Sent!' : sendReset.isPending ? 'Sending…' : 'Send Reset'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleResendInvite}
+                disabled={resendInvite.isPending || inviteSent}
+              >
+                <Mail className="h-3.5 w-3.5" />
+                {inviteSent
+                  ? 'Invitation sent!'
+                  : resendInvite.isPending
+                  ? 'Sending…'
+                  : 'Resend Invitation'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={handleSendReset}
+                disabled={sendReset.isPending || resetSent}
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                {resetSent
+                  ? 'Reset sent!'
+                  : sendReset.isPending
+                  ? 'Sending…'
+                  : 'Send Password Reset'}
+              </Button>
+            </div>
+            {emailError && (
+              <div className="flex items-start gap-2 text-xs text-destructive">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{emailError}</span>
+              </div>
+            )}
           </div>
 
           {/* Notification preferences */}

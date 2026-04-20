@@ -100,3 +100,9 @@ export function useSendPasswordReset() {
     mutationFn: (email: string) => callManageUser({ action: 'send_reset', email }),
   })
 }
+
+export function useResendInvite() {
+  return useMutation({
+    mutationFn: (email: string) => callManageUser({ action: 'resend_invite', email }),
+  })
+}

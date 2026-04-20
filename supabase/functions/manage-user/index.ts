@@ -169,6 +169,36 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // --- Resend invitation ---
+    // Supabase's inviteUserByEmail succeeds when the target user exists but
+    // is not yet email-confirmed (i.e. they haven't accepted the invite).
+    // It errors for already-confirmed users — we surface a clean message.
+    if (action === 'resend_invite') {
+      const { email } = body
+      const { data: profileByEmail } = await adminClient
+        .from('profiles').select('first_name, last_name').eq('email', email).maybeSingle()
+
+      const { error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(email, {
+        data: {
+          first_name: profileByEmail?.first_name ?? undefined,
+          last_name: profileByEmail?.last_name ?? undefined,
+        },
+        redirectTo: RESET_REDIRECT,
+      })
+      if (inviteError) {
+        const msg = inviteError.message ?? 'Failed to resend invitation'
+        const friendly = /already.*registered|already.*confirmed|already been used/i.test(msg)
+          ? 'This user has already accepted their invitation. Use "Send Password Reset" instead.'
+          : msg
+        return new Response(JSON.stringify({ error: friendly }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     return new Response(JSON.stringify({ error: 'Unknown action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
