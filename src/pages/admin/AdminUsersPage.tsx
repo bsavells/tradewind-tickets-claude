@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, Users, KeyRound, RotateCcw, UserX } from 'lucide-react'
+import { Plus, Pencil, Users, KeyRound, RotateCcw, UserX, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -467,6 +468,16 @@ function CreateUserDialog({ open, onClose }: { open: boolean; onClose: () => voi
   )
 }
 
+// ---- Sorting ----
+type SortKey = 'name' | 'email' | 'role' | 'classification' | 'vehicle' | 'active'
+type SortDir = 'asc' | 'desc'
+
+/** Stable numeric rank for roles (admin writable > admin readonly > user). */
+function roleRank(u: Profile): number {
+  if (u.role !== 'admin') return 2 // user
+  return u.is_readonly_admin ? 1 : 0 // writable admin first
+}
+
 // ---- Main page ----
 export function AdminUsersPage() {
   const { profile: currentUser } = useAuth()
@@ -480,6 +491,63 @@ export function AdminUsersPage() {
   const [disabling, setDisabling] = useState<Profile | null>(null)
   const [permDeleting, setPermDeleting] = useState<Profile | null>(null)
 
+  // Default: sort alphabetically by name ascending
+  const [sortKey, setSortKey] = useState<SortKey>('name')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedUsers = useMemo(() => {
+    const dir = sortDir === 'asc' ? 1 : -1
+    const arr = [...users]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case 'name':
+          cmp =
+            (a.last_name ?? '').localeCompare(b.last_name ?? '', undefined, { sensitivity: 'base' }) ||
+            (a.first_name ?? '').localeCompare(b.first_name ?? '', undefined, { sensitivity: 'base' })
+          break
+        case 'email':
+          cmp = (a.email ?? '').localeCompare(b.email ?? '', undefined, { sensitivity: 'base' })
+          break
+        case 'role':
+          cmp = roleRank(a) - roleRank(b)
+          break
+        case 'classification': {
+          const aName = (a as unknown as { classifications: { name: string } | null }).classifications?.name ?? ''
+          const bName = (b as unknown as { classifications: { name: string } | null }).classifications?.name ?? ''
+          cmp = aName.localeCompare(bName, undefined, { sensitivity: 'base' })
+          break
+        }
+        case 'vehicle': {
+          const aLabel = a.default_vehicle_id ? vehicleMap.get(a.default_vehicle_id) ?? '' : ''
+          const bLabel = b.default_vehicle_id ? vehicleMap.get(b.default_vehicle_id) ?? '' : ''
+          cmp = aLabel.localeCompare(bLabel, undefined, { sensitivity: 'base' })
+          break
+        }
+        case 'active':
+          // Active (true) sorts before inactive (false) in asc
+          cmp = (a.active ? 0 : 1) - (b.active ? 0 : 1)
+          break
+      }
+      if (cmp !== 0) return cmp * dir
+      // Tiebreaker: alphabetical by last, first
+      const lastCmp =
+        (a.last_name ?? '').localeCompare(b.last_name ?? '', undefined, { sensitivity: 'base' }) ||
+        (a.first_name ?? '').localeCompare(b.first_name ?? '', undefined, { sensitivity: 'base' })
+      return lastCmp
+    })
+    return arr
+  }, [users, sortKey, sortDir, vehicleMap])
+
   function roleBadge(u: Profile) {
     if (u.role === 'admin') {
       return u.is_readonly_admin
@@ -487,6 +555,29 @@ export function AdminUsersPage() {
         : <Badge variant="default">Admin</Badge>
     }
     return <Badge variant="secondary">User</Badge>
+  }
+
+  function SortHeader({ k, label, className }: { k: SortKey; label: string; className?: string }) {
+    const isActive = sortKey === k
+    const Icon = !isActive ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown
+    return (
+      <TableHead className={className}>
+        <button
+          type="button"
+          onClick={() => handleSort(k)}
+          className="inline-flex items-center gap-1 hover:text-[var(--color-tw-navy)] transition-colors group"
+          aria-label={`Sort by ${label}${isActive ? ` (${sortDir})` : ''}`}
+        >
+          {label}
+          <Icon
+            className={cn(
+              'h-3 w-3 transition-colors',
+              isActive ? 'text-[var(--color-tw-blue)]' : 'text-muted-foreground/40 group-hover:text-muted-foreground',
+            )}
+          />
+        </button>
+      </TableHead>
+    )
   }
 
   return (
@@ -521,17 +612,17 @@ export function AdminUsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="hidden md:table-cell">Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="hidden sm:table-cell">Classification</TableHead>
-                  <TableHead className="hidden lg:table-cell">Vehicle</TableHead>
-                  <TableHead>Active</TableHead>
+                  <SortHeader k="name" label="Name" />
+                  <SortHeader k="email" label="Email" className="hidden md:table-cell" />
+                  <SortHeader k="role" label="Role" />
+                  <SortHeader k="classification" label="Classification" className="hidden sm:table-cell" />
+                  <SortHeader k="vehicle" label="Vehicle" className="hidden lg:table-cell" />
+                  <SortHeader k="active" label="Active" />
                   <TableHead className="w-28" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map(u => (
+                {sortedUsers.map(u => (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
                       {u.first_name} {u.last_name}
