@@ -18,6 +18,17 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** True when the browser is currently on a public auth-related page. */
+function isOnAuthPage(): boolean {
+  const p = window.location.pathname
+  return (
+    p === '/login' ||
+    p === '/forgot-password' ||
+    p === '/reset-password' ||
+    p.startsWith('/sign/')
+  )
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -47,6 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Watchdog: if the current profile flips to inactive (admin disabled the user),
   // sign them out immediately. Subscribes to realtime updates on this user's
   // profiles row so the sign-out happens within seconds of the admin action.
+  //
+  // Auth pages (/login, /forgot-password, /reset-password, /sign/:token) handle
+  // their own error display when a deactivated user tries to sign in. We skip
+  // the hard redirect there so their own UI isn't wiped by a full page reload.
   useEffect(() => {
     if (!session?.user?.id) return
     const userId = session.user.id
@@ -64,9 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (payload) => {
           const next = payload.new as Profile | null
           if (next && next.active === false) {
-            // Disabled by an admin — sign out and refresh to land on /login
             supabase.auth.signOut().finally(() => {
-              window.location.href = '/login'
+              if (!isOnAuthPage()) window.location.href = '/login'
             })
           } else if (next) {
             setProfile(next)
@@ -80,13 +94,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.user?.id])
 
-  // Also auto-sign-out if a profile fetch returns active=false (covers the
-  // case where the browser was closed during disable and reopens later).
+  // Fallback: if a profile fetch returns active=false (e.g. browser reopened
+  // after being closed during disable), sign out quietly. We do NOT redirect
+  // here because:
+  //   - on a protected route, ProtectedRoute handles the redirect when the
+  //     session clears, so its own flow is preserved
+  //   - on an auth page, LoginPage shows its own "account deactivated" error
+  //     and a hard redirect would wipe it before the user can read it
   useEffect(() => {
     if (!loading && profile && profile.active === false) {
-      supabase.auth.signOut().finally(() => {
-        window.location.href = '/login'
-      })
+      supabase.auth.signOut()
     }
   }, [loading, profile])
 
