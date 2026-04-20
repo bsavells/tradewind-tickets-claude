@@ -546,7 +546,31 @@ export function AdminTicketReviewPage() {
         </div>
       </div>
 
-      {/* Audit Log */}
+      {/* Customer Signature */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Customer Signature</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <SignatureSection ticketId={t.id} canEdit={true} />
+        </CardContent>
+      </Card>
+
+      {/* Photos */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Photos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PhotoUploader
+            ticketId={t.id}
+            canEdit={!isFinalized}
+            onAutoSave={async () => t.id}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Audit Log — always last, after signature + photos */}
       {auditLog.length > 0 && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-sm">Activity Log</CardTitle></CardHeader>
@@ -594,30 +618,6 @@ export function AdminTicketReviewPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Customer Signature */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Customer Signature</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SignatureSection ticketId={t.id} canEdit={true} />
-        </CardContent>
-      </Card>
-
-      {/* Photos */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Photos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <PhotoUploader
-            ticketId={t.id}
-            canEdit={!isFinalized}
-            onAutoSave={async () => t.id}
-          />
-        </CardContent>
-      </Card>
 
       {/* Action bar */}
       <div className="fixed bottom-0 left-0 right-0 md:relative border-t md:border md:rounded-lg bg-background p-4 flex flex-wrap gap-2 z-10 md:shadow-sm">
