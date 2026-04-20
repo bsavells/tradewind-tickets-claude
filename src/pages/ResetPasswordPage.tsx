@@ -7,8 +7,8 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Wind, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import { GradientBar, Wordmark } from '@/components/Branding'
 
 const schema = z
   .object({
@@ -34,8 +34,6 @@ export function ResetPasswordPage() {
   } = useForm<Form>({ resolver: zodResolver(schema) })
 
   useEffect(() => {
-    // Supabase JS processes the #access_token hash and fires PASSWORD_RECOVERY
-    // when the link comes from a password reset email.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') setReady(true)
     })
@@ -57,77 +55,82 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2">
-            <Wind className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold tracking-tight">Tradewind</span>
+    <div className="min-h-screen tw-grid-bg tw-atmospheric relative overflow-hidden">
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm space-y-8">
+          <div className="flex flex-col items-center gap-3">
+            <Wordmark size="lg" orientation="vertical" />
           </div>
-          <p className="text-muted-foreground text-sm">Work Ticket System</p>
-        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Set new password</CardTitle>
-            <CardDescription>
-              {done
-                ? 'Password updated — redirecting to sign in…'
-                : !ready
-                ? 'Verifying your reset link…'
-                : 'Choose a new password for your account.'}
-            </CardDescription>
-          </CardHeader>
-
-          {done && (
-            <CardContent>
-              <div className="flex flex-col items-center gap-2 py-4 text-green-600">
-                <CheckCircle2 className="h-8 w-8" />
-                <p className="text-sm font-medium">Password updated successfully!</p>
+          <div className="relative bg-card rounded-xl shadow-[0_4px_24px_-8px_rgba(10,30,61,0.15)] overflow-hidden">
+            <GradientBar />
+            <div className="p-7">
+              <div className="mb-6">
+                <h1 className="text-xl font-bold text-[var(--color-tw-navy)] mb-1">
+                  Set new password
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {done
+                    ? 'Password updated — redirecting to sign in…'
+                    : !ready
+                    ? 'Verifying your reset link…'
+                    : 'Choose a new password for your account.'}
+                </p>
               </div>
-            </CardContent>
-          )}
 
-          {ready && !done && (
-            <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="password">New Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    {...register('password')}
-                  />
-                  {errors.password && (
-                    <p className="text-xs text-destructive">{errors.password.message}</p>
-                  )}
+              {done && (
+                <div className="flex flex-col items-center gap-2 py-4 text-green-600">
+                  <CheckCircle2 className="h-10 w-10" />
+                  <p className="text-sm font-medium">Password updated successfully!</p>
                 </div>
+              )}
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirmPassword">Confirm Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    {...register('confirmPassword')}
-                  />
-                  {errors.confirmPassword && (
-                    <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
-                  )}
+              {!ready && !done && (
+                <div className="flex justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-[var(--color-tw-blue)] border-t-transparent rounded-full animate-spin" />
                 </div>
+              )}
 
-                {serverError && (
-                  <p className="text-sm text-destructive">{serverError}</p>
-                )}
+              {ready && !done && (
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password" className="tw-label">New Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      autoComplete="new-password"
+                      {...register('password')}
+                    />
+                    {errors.password && (
+                      <p className="text-xs text-destructive">{errors.password.message}</p>
+                    )}
+                  </div>
 
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? 'Updating…' : 'Set Password'}
-                </Button>
-              </form>
-            </CardContent>
-          )}
-        </Card>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword" className="tw-label">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      {...register('confirmPassword')}
+                    />
+                    {errors.confirmPassword && (
+                      <p className="text-xs text-destructive">{errors.confirmPassword.message}</p>
+                    )}
+                  </div>
+
+                  {serverError && (
+                    <p className="text-sm text-destructive">{serverError}</p>
+                  )}
+
+                  <Button type="submit" className="w-full font-semibold tracking-wide" disabled={isSubmitting}>
+                    {isSubmitting ? 'Updating…' : 'Set Password'}
+                  </Button>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

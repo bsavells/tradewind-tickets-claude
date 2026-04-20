@@ -7,8 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Wind } from 'lucide-react'
+import { GradientBar, Wordmark } from '@/components/Branding'
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -38,7 +37,6 @@ export function LoginPage() {
       return
     }
 
-    // Check if the account has been deactivated
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const { data: profile } = await supabase
@@ -51,7 +49,7 @@ export function LoginPage() {
         setError(
           <>
             Your account has been deactivated. Please contact{' '}
-            <a href="mailto:it@tradewindcontrols.com" className="underline">
+            <a href="mailto:it@tradewindcontrols.com" className="underline decoration-[var(--color-tw-blue)]">
               it@tradewindcontrols.com
             </a>
             {' '}if you believe this is a mistake.
@@ -66,68 +64,86 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <div className="flex items-center gap-2">
-            <Wind className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold tracking-tight">Tradewind</span>
+    <div className="min-h-screen tw-grid-bg tw-atmospheric relative overflow-hidden">
+      <div className="relative z-10 min-h-screen flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm space-y-8">
+          {/* Brand lockup */}
+          <div className="flex flex-col items-center gap-3">
+            <Wordmark size="lg" orientation="vertical" showTagline />
           </div>
-          <p className="text-muted-foreground text-sm">Work Ticket System</p>
-        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  autoCapitalize="none"
-                  {...register('email')}
-                />
-                {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email.message}</p>
-                )}
+          {/* Card */}
+          <div className="relative bg-card rounded-xl shadow-[0_4px_24px_-8px_rgba(10,30,61,0.15)] overflow-hidden">
+            <GradientBar />
+            <div className="p-7">
+              <div className="mb-6">
+                <h1 className="text-xl font-bold text-[var(--color-tw-navy)] mb-1">
+                  Sign in
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Access your work tickets.
+                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="tw-label">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    {...register('email')}
+                  />
+                  {errors.email && (
+                    <p className="text-xs text-destructive">{errors.email.message}</p>
+                  )}
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  {...register('password')}
-                />
-                {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password.message}</p>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="tw-label">Password</Label>
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs text-[var(--color-tw-blue)] hover:underline underline-offset-2"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="current-password"
+                    {...register('password')}
+                  />
+                  {errors.password && (
+                    <p className="text-xs text-destructive">{errors.password.message}</p>
+                  )}
+                </div>
+
+                {error && (
+                  <p className="text-sm text-destructive text-center">{error}</p>
                 )}
-              </div>
 
-              {error && (
-                <p className="text-sm text-destructive text-center">{error}</p>
-              )}
+                <Button
+                  type="submit"
+                  className="w-full font-semibold tracking-wide"
+                  disabled={loading}
+                >
+                  {loading ? 'Signing in…' : 'Sign in'}
+                </Button>
+              </form>
+            </div>
+          </div>
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Signing in…' : 'Sign in'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+          {/* Footer */}
+          <div className="text-center space-y-1">
+            <p className="tw-label text-[10px]">Tradewind Controls</p>
+            <p className="text-[11px] text-muted-foreground">
+              Automation, Measurement, &amp; SCADA
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   )

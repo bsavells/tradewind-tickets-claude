@@ -3,6 +3,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* shadcn/ui tokens — driven by CSS vars below */
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-card: hsl(var(--card));
@@ -25,66 +26,175 @@
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
+
+  /* Tradewind brand tokens — raw hex for direct tailwind use */
+  --color-tw-navy: #0a1e3d;
+  --color-tw-navy-deep: #050f1f;
+  --color-tw-blue: #1d90ff;
+  --color-tw-blue-soft: #47bfff;
+  --color-tw-cyan: #00d4ff;
+  --color-tw-mist: #edeff3;
+  --color-tw-fog: #f4f6f9;
+
+  /* Font families */
+  --font-display: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Libre Franklin", ui-sans-serif, system-ui, sans-serif;
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  /* Light theme — Tradewind brand */
+  --background: 220 14% 94%;                 /* #edeff3 — page background */
+  --foreground: 216 71% 14%;                 /* navy #0a1e3d — strong text */
+  --card: 0 0% 100%;                         /* white surfaces */
+  --card-foreground: 216 71% 14%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
-  --radius: 0.5rem;
+  --popover-foreground: 216 71% 14%;
+  --primary: 210 100% 56%;                   /* Dodger Blue #1d90ff */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 92%;                  /* slightly darker than bg */
+  --secondary-foreground: 216 71% 14%;
+  --muted: 220 14% 94%;
+  --muted-foreground: 216 15% 42%;           /* softer navy-leaning grey */
+  --accent: 195 100% 50%;                    /* cyan #00d4ff — used sparingly */
+  --accent-foreground: 216 71% 14%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 14% 88%;
+  --input: 220 14% 88%;
+  --ring: 210 100% 56%;
+  --radius: 0.625rem;
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
+  --background: 216 71% 8%;
   --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
+  --card: 216 60% 12%;
   --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
+  --popover: 216 60% 12%;
   --popover-foreground: 210 40% 98%;
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
+  --primary: 210 100% 56%;
+  --primary-foreground: 216 71% 8%;
+  --secondary: 216 50% 18%;
   --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
+  --muted: 216 50% 18%;
+  --muted-foreground: 215 20% 70%;
+  --accent: 195 100% 50%;
+  --accent-foreground: 216 71% 8%;
+  --destructive: 0 62% 45%;
   --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --border: 216 50% 22%;
+  --input: 216 50% 22%;
+  --ring: 195 100% 50%;
 }
 
 * {
   border-color: hsl(var(--border));
 }
 
+html, body, #root {
+  height: 100svh;
+  overflow: hidden;
+}
+
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Libre Franklin", ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "ss02";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-html, body, #root {
-  height: 100svh;
-  overflow: hidden;
+/* Display typography — used for H1, brand marks, and .font-display class */
+h1, h2, h3, .font-display {
+  font-family: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+/* Small-caps technical label — for metadata pills, category tags, etc. */
+.tw-label {
+  font-family: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Brand wordmark — "TRADEWIND TICKETS" styling (matches emails) */
+.tw-wordmark {
+  font-family: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+/* Gradient utilities — used for the signature navy→cyan→blue accent */
+.tw-gradient-bar {
+  background: linear-gradient(
+    to right,
+    #0a1e3d 0%,
+    #0a1e3d 15%,
+    #00d4ff 55%,
+    #1d90ff 100%
+  );
+}
+
+.tw-gradient-text {
+  background: linear-gradient(90deg, #0a1e3d 0%, #1d90ff 55%, #00d4ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Subtle blueprint-grid background — used on auth pages */
+.tw-grid-bg {
+  background-color: #edeff3;
+  background-image:
+    linear-gradient(rgba(10, 30, 61, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 30, 61, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+}
+
+/* Soft radial glow — atmospheric accent for the login page */
+.tw-atmospheric {
+  position: relative;
+}
+.tw-atmospheric::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 800px 400px at 20% 10%, rgba(29, 144, 255, 0.10), transparent 60%),
+    radial-gradient(ellipse 900px 500px at 85% 95%, rgba(0, 212, 255, 0.08), transparent 60%);
+}
+
+/* Custom scrollbar — subtle, brand-appropriate */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(10, 30, 61, 0.12);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(10, 30, 61, 0.22);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* Focus ring — uses the primary blue */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }

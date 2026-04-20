@@ -1,0 +1,24 @@
+{
+  "name": "Tradewind Tickets",
+  "short_name": "Tradewind",
+  "description": "Tradewind Controls field work ticket system — Efficiency, Solved.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#edeff3",
+  "theme_color": "#0a1e3d",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
