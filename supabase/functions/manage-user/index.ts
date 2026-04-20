@@ -84,6 +84,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // --- Deactivate user (sets active = false, preserves all data) ---
+    // Also revokes all active sessions so the user is immediately logged out.
     if (action === 'delete') {
       const { user_id } = body
 
@@ -92,6 +93,17 @@ Deno.serve(async (req: Request) => {
         .update({ active: false })
         .eq('id', user_id)
       if (deactivateError) throw deactivateError
+
+      // Revoke all active sessions for the user — forces an immediate sign-out
+      // on every device. Errors here are logged but non-fatal: the client-side
+      // active-flag watchdog will sign them out on the next profile check.
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: signOutErr } = await (adminClient.auth.admin as any).signOut(user_id, 'global')
+        if (signOutErr) console.error('signOut on disable failed:', signOutErr)
+      } catch (e) {
+        console.error('signOut on disable threw:', e)
+      }
 
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

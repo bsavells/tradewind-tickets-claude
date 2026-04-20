@@ -44,6 +44,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Watchdog: if the current profile flips to inactive (admin disabled the user),
+  // sign them out immediately. Subscribes to realtime updates on this user's
+  // profiles row so the sign-out happens within seconds of the admin action.
+  useEffect(() => {
+    if (!session?.user?.id) return
+    const userId = session.user.id
+
+    const channel = supabase
+      .channel(`profile-watchdog-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          const next = payload.new as Profile | null
+          if (next && next.active === false) {
+            // Disabled by an admin — sign out and refresh to land on /login
+            supabase.auth.signOut().finally(() => {
+              window.location.href = '/login'
+            })
+          } else if (next) {
+            setProfile(next)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [session?.user?.id])
+
+  // Also auto-sign-out if a profile fetch returns active=false (covers the
+  // case where the browser was closed during disable and reopens later).
+  useEffect(() => {
+    if (!loading && profile && profile.active === false) {
+      supabase.auth.signOut().finally(() => {
+        window.location.href = '/login'
+      })
+    }
+  }, [loading, profile])
+
   async function fetchProfile(userId: string) {
     const { data } = await supabase
       .from('profiles')
