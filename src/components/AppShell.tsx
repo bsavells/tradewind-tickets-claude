@@ -109,7 +109,7 @@ export function AppShell() {
             <p className="text-sm font-semibold text-[var(--color-tw-navy)] truncate">
               {profile?.first_name} {profile?.last_name}
             </p>
-            <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+            <p className="text-[11px] text-muted-foreground break-all leading-tight">{profile?.email}</p>
             <p className="tw-label text-[9px] mt-1">
               {profile?.role}{profile?.is_readonly_admin ? ' · read-only' : ''}
             </p>
@@ -132,7 +132,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen bg-background">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-[var(--color-tw-navy)]/10 bg-card">
+      <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-[var(--color-tw-navy)]/10 bg-card">
         {sidebar}
       </aside>
 

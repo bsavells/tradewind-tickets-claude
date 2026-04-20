@@ -79,7 +79,8 @@ export function Wordmark({
   className?: string
 }) {
   const logoSize = size === 'sm' ? 22 : size === 'md' ? 32 : 44
-  const textSize = size === 'sm' ? 'text-sm' : size === 'md' ? 'text-base' : 'text-xl'
+  const textSize = size === 'sm' ? 'text-[13px]' : size === 'md' ? 'text-base' : 'text-xl'
+  const textTracking = size === 'sm' ? 'tracking-[0.08em]' : 'tracking-[0.15em]'
   const taglineSize = size === 'sm' ? 'text-[9px]' : 'text-[10px]'
 
   const isVertical = orientation === 'vertical'
@@ -94,7 +95,7 @@ export function Wordmark({
     >
       <TradewindLogo size={logoSize} />
       <div className={cn('flex flex-col', isVertical && 'items-center')}>
-        <div className={cn('tw-wordmark leading-none flex items-baseline gap-1', textSize)}>
+        <div className={cn('leading-none flex items-baseline gap-1 uppercase', textSize, textTracking)}>
           <span className="font-extrabold text-[var(--color-tw-navy)]">TRADEWIND</span>
           <span className="text-[var(--color-tw-blue)] font-light opacity-60 text-[0.7em] mx-0.5">·</span>
           <span className="font-light text-[var(--color-tw-blue)]">TICKETS</span>
