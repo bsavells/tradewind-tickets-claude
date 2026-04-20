@@ -33,11 +33,29 @@ export function ResetPasswordPage() {
     formState: { errors, isSubmitting },
   } = useForm<Form>({ resolver: zodResolver(schema) })
 
+  // Accept both password-reset flows and invitation flows:
+  //   - Password reset:  Supabase fires PASSWORD_RECOVERY
+  //   - Invitation:      Supabase fires SIGNED_IN (inviteUserByEmail signs the
+  //                      user in when they click the link)
+  // Also check the current session on mount in case the auth state change
+  // already fired before our subscription was set up.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') setReady(true)
+    let cancelled = false
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!cancelled && session) setReady(true)
     })
-    return () => subscription.unsubscribe()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || (session && event === 'INITIAL_SESSION')) {
+        setReady(true)
+      }
+    })
+
+    return () => {
+      cancelled = true
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function onSubmit(data: Form) {
@@ -73,7 +91,7 @@ export function ResetPasswordPage() {
                   {done
                     ? 'Password updated — redirecting to sign in…'
                     : !ready
-                    ? 'Verifying your reset link…'
+                    ? 'Verifying your link…'
                     : 'Choose a new password for your account.'}
                 </p>
               </div>
