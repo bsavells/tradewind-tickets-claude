@@ -17,7 +17,16 @@ export function useCustomers() {
         .eq('company_id', profile!.company_id)
         .order('name')
       if (error) throw error
-      return data as (Customer & { customer_contacts: CustomerContact[] })[]
+      const rows = data as (Customer & { customer_contacts: CustomerContact[] })[]
+      // Sort contacts alphabetically by first name (case-insensitive). The
+      // `name` field stores the contact's full name; sorting by the full
+      // string yields first-name-alphabetical order ("Alice Smith" < "Bob Lee").
+      return rows.map(c => ({
+        ...c,
+        customer_contacts: [...c.customer_contacts].sort((a, b) =>
+          (a.name ?? '').localeCompare(b.name ?? '', undefined, { sensitivity: 'base' }),
+        ),
+      }))
     },
     enabled: !!profile,
   })
