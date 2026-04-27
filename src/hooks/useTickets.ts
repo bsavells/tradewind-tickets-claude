@@ -325,6 +325,19 @@ export function useAdminUpdateTicketPricing() {
         if (err) throw err
       }
 
+      // Parallel UPDATEs each fire the per-row AFTER trigger that recomputes
+      // tickets.grand_total. Because the updates run in independent
+      // transactions, the SUMs they read can see stale data from the other
+      // pending transactions, leaving tickets.grand_total wrong (e.g. only
+      // the last writer's contribution). After all updates complete, force
+      // a final recompute that sees the committed state.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: rpcErr } = await (supabase.rpc as any)(
+        'recompute_ticket_grand_total',
+        { p_ticket_id: ticketId },
+      )
+      if (rpcErr) throw rpcErr
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (supabase.from('ticket_audit_log') as any).insert({
         ticket_id: ticketId,
