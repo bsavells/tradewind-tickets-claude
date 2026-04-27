@@ -20,7 +20,10 @@
       "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__list_projects",
       "Bash(mkdir -p src/themes/default-backup)",
       "Bash(cp src/index.css src/themes/default-backup/index.css.bak)",
-      "Bash(cp public/favicon.svg src/themes/default-backup/favicon.svg.bak)"
+      "Bash(cp public/favicon.svg src/themes/default-backup/favicon.svg.bak)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

@@ -9,6 +9,12 @@ export interface ReportFilters {
   customerIds: string[] // empty = all
   techIds: string[]     // empty = all (filters tickets.created_by)
   statuses: string[]    // empty = all
+  /**
+   * Free-text requestor names to filter by (case-insensitive match).
+   * Applied client-side so the available-requestor dropdown can be built
+   * from the unfiltered set for a given date/customer/tech/status scope.
+   */
+  requestors: string[]
 }
 
 /**
@@ -31,6 +37,7 @@ export function useReportTickets(filters: ReportFilters) {
           grand_total,
           customer_id,
           created_by,
+          requestor,
           customers(name),
           profiles!tickets_created_by_fkey(first_name, last_name),
           ticket_labor(user_id, first_name, last_name, hours, reg_hours, ot_hours)

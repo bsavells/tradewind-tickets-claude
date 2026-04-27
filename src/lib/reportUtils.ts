@@ -31,6 +31,7 @@ export interface ReportTicket {
   grand_total: number
   customer_id: string
   created_by: string | null
+  requestor: string
   customers: { name: string } | null
   profiles: { first_name: string; last_name: string } | null
   ticket_labor: ReportLabor[]

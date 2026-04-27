@@ -46,6 +46,7 @@ function defaultFilters(): ReportFilters {
     customerIds: [],
     techIds: [],
     statuses: DEFAULT_STATUSES,
+    requestors: [],
   }
 }
 
@@ -57,6 +58,8 @@ function filtersFromQuery(qs: URLSearchParams): ReportFilters {
   const techs = qs.get('techs');         if (techs) d.techIds = techs.split(',').filter(Boolean)
   const status = qs.get('status')
   if (status) d.statuses = status.split(',').filter(Boolean)
+  const requestors = qs.get('requestors')
+  if (requestors) d.requestors = requestors.split('|').filter(Boolean)
   return d
 }
 
@@ -68,6 +71,8 @@ function queryFromFilters(f: ReportFilters): string {
   if (f.customerIds.length > 0) params.push(`customers=${f.customerIds.join(',')}`)
   if (f.techIds.length > 0) params.push(`techs=${f.techIds.join(',')}`)
   if (f.statuses.join(',') !== def.statuses.join(',')) params.push(`status=${f.statuses.join(',')}`)
+  // Requestors are free-text and may contain commas, so use | as separator
+  if (f.requestors.length > 0) params.push(`requestors=${f.requestors.map(encodeURIComponent).join('|')}`)
   return params.join('&')
 }
 
@@ -148,16 +153,41 @@ export function AdminReportsPage() {
     [profiles],
   )
 
-  const kpis = useMemo(() => computeKpis(tickets), [tickets])
-  const statusMix = useMemo(() => computeStatusMix(tickets), [tickets])
+  // Requestor options come from the SQL-filtered ticket set so the dropdown
+  // reflects the date/customer/tech/status scope that's currently selected.
+  // Free-text values are de-duplicated case-insensitively and sorted A-Z.
+  const requestorOptions: MultiSelectOption[] = useMemo(() => {
+    const seen = new Map<string, string>() // key=lowercased, value=display
+    for (const t of tickets) {
+      const r = (t.requestor ?? '').trim()
+      if (!r) continue
+      const key = r.toLowerCase()
+      if (!seen.has(key)) seen.set(key, r)
+    }
+    return Array.from(seen.values())
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .map(name => ({ value: name, label: name }))
+  }, [tickets])
+
+  // Apply the requestor filter client-side so the available-requestor list
+  // doesn't shrink to just the selected values.
+  const filteredTickets = useMemo(() => {
+    if (filters.requestors.length === 0) return tickets
+    const targets = new Set(filters.requestors.map(r => r.toLowerCase()))
+    return tickets.filter(t => targets.has((t.requestor ?? '').trim().toLowerCase()))
+  }, [tickets, filters.requestors])
+
+  const kpis = useMemo(() => computeKpis(filteredTickets), [filteredTickets])
+  const statusMix = useMemo(() => computeStatusMix(filteredTickets), [filteredTickets])
   const hoursGrid = useMemo(
-    () => buildHoursGrid(tickets, filters.dateFrom, filters.dateTo),
-    [tickets, filters.dateFrom, filters.dateTo],
+    () => buildHoursGrid(filteredTickets, filters.dateFrom, filters.dateTo),
+    [filteredTickets, filters.dateFrom, filters.dateTo],
   )
 
   const hasFilters =
     filters.customerIds.length > 0 ||
     filters.techIds.length > 0 ||
+    filters.requestors.length > 0 ||
     filters.statuses.join(',') !== DEFAULT_STATUSES.join(',') ||
     filters.dateFrom !== defaultFilters().dateFrom ||
     filters.dateTo !== defaultFilters().dateTo
@@ -220,6 +250,21 @@ export function AdminReportsPage() {
                 value={filters.techIds}
                 onChange={v => updateFilters({ techIds: v })}
                 placeholder="All technicians"
+              />
+            </div>
+
+            {/* Requestor — spans full row, options derived from current scope */}
+            <div className="space-y-1.5 md:col-span-3">
+              <Label className="tw-label">Requestor</Label>
+              <MultiSelect
+                options={requestorOptions}
+                value={filters.requestors}
+                onChange={v => updateFilters({ requestors: v })}
+                placeholder={
+                  requestorOptions.length === 0
+                    ? 'No requestors in this date/customer range'
+                    : 'All requestors'
+                }
               />
             </div>
           </div>
@@ -440,11 +485,11 @@ export function AdminReportsPage() {
             <CardContent className="p-0">
               <div className="p-4 border-b">
                 <h2 className="font-display font-bold text-[var(--color-tw-navy)]">
-                  Tickets <span className="text-muted-foreground font-normal">({tickets.length})</span>
+                  Tickets <span className="text-muted-foreground font-normal">({filteredTickets.length})</span>
                 </h2>
               </div>
 
-              {tickets.length === 0 ? (
+              {filteredTickets.length === 0 ? (
                 <div className="p-8 text-center space-y-3">
                   <p className="text-sm text-muted-foreground italic">
                     No tickets match the current filters.
@@ -469,6 +514,7 @@ export function AdminReportsPage() {
                         <TableHead>Ticket</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Customer</TableHead>
+                        <TableHead>Requestor</TableHead>
                         <TableHead>Tech</TableHead>
                         <TableHead className="text-right">Hours</TableHead>
                         <TableHead className="text-right">Total</TableHead>
@@ -476,7 +522,7 @@ export function AdminReportsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tickets.map(t => {
+                      {filteredTickets.map(t => {
                         const hours = (t.ticket_labor ?? []).reduce((s, l) => {
                           const reg = l.reg_hours ?? 0
                           const ot = l.ot_hours ?? 0
@@ -496,6 +542,7 @@ export function AdminReportsPage() {
                             <TableCell className="font-medium">{t.ticket_number}</TableCell>
                             <TableCell className="text-muted-foreground">{dateStr}</TableCell>
                             <TableCell>{t.customers?.name ?? '—'}</TableCell>
+                            <TableCell className="text-muted-foreground">{t.requestor || '—'}</TableCell>
                             <TableCell className="text-muted-foreground">{techName}</TableCell>
                             <TableCell className="text-right tabular-nums">{formatHours(hours)}</TableCell>
                             <TableCell className="text-right tabular-nums font-medium">
