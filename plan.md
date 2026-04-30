@@ -295,11 +295,33 @@ Dedicated `/admin/reports` page for aggregate ticket analytics:
 - **Accessibility audit** — keyboard nav, ARIA labels, focus management, color contrast.
 - **Bundle code-splitting** — route-level `React.lazy()` + lazy-load heavy libs like `jsPDF`.
 - **Lighthouse score targets** — set goals for Performance / Accessibility / Best Practices / SEO and fix flagged issues.
+- **PDF asset refresh** — swap in new header / branding images on the PDF export template (assets to be provided by Brian).
+
+---
+
+### Phase 12 — Ticket Entry & Pricing Refinements (planned)
+- **Per-customer classification rates** — admins can pre-set labor rates per `(customer × classification)`. Example: High Peak's SCADA tech bills at $150/hr, Midstates' SCADA tech bills at $125/hr. Defaults flow into ticket review when a customer is selected; per-line override at review still supported. Schema: new `customer_classification_rates` table keyed by `(customer_id, classification_id)` with `reg_rate`, `ot_rate`, plus an admin UI on the customer detail page (or a matrix on the classifications page).
+- **Flat hours mode** — toggle on the ticket header at creation that hides start/end time pickers and exposes a single "Hours" input on each labor row. Useful for tickets where start/stop times aren't tracked. Stored as e.g. `tickets.time_entry_mode = 'flat' | 'clock'`.
+- **Smarter default times** — replace the midnight default on the start/end time pickers. Options to consider: snap to the current 15-minute increment, remember the last entered time within the same ticket, or expose a quick-pick row of common shift starts (07:00, 08:00, etc.) above the dropdown.
+- **Re-sign reason capture** — when a signature is cleared for re-sign, prompt for an optional reason (e.g. "hours updated", "description revised"). Pre-populate the suggestion by diffing the audit log between the original sign timestamp and now: surface which labor rows, materials, descriptions, etc. changed, so the reason text writes itself when possible.
+
+---
+
+### Phase 13 — Inventory System (planned, scope TBD)
+Major new module to track physical hardware deployed at customer facilities. Initial scope ideas (to be refined in a follow-up planning pass):
+- Per-customer, per-facility inventory locations.
+- Part records with serial number, part number, manufacturer/model, install date, status, free-text notes.
+- Photos and document attachments per part.
+- Movement / lifecycle tracking (installed, removed, returned, scrapped, transferred between facilities).
+- Cross-link to tickets where parts were installed, swapped, or removed — automatic inventory updates from ticket materials when applicable.
+- Search and reporting (e.g. "all RTUs at High Peak Compressor Station 4", "every controller installed in 2025").
+Schema, RLS policies, admin UI, tech mobile capture flow, and reporting all to be designed before implementation begins.
 
 ---
 
 ## Backlog / Known Issues
 
+- [ ] **Notification bulk / digest option not working** — the bulk notification preference appears non-functional end-to-end. Investigate: digest dispatch path, scheduled job/cron firing, event aggregation into the digest payload, and actual SendGrid delivery for digest mode. Confirm whether per-event "off / immediate / daily digest" prefs are read correctly when the dispatcher runs.
 - [ ] **Permanent user delete** — Implemented in manage-user edge function (`permanent_delete` action) + UI (`PermanentDeleteDialog` in AdminUsersPage, currently hidden). Fails due to Postgres FK cascade conflicts with RLS policies. Error: `referential integrity query on "profiles" from constraint "ticket_audit_log_actor_id_fkey" gave unexpected result — due to a rule having rewritten the query.` Fix: either manually nullify ALL FK references before deleting (bypassing cascade entirely), or create a `SECURITY DEFINER` Postgres function that temporarily disables RLS on affected tables during the delete.
 - [ ] **XLSX single-ticket export button** — `src/lib/exportTicketXlsx.ts` is implemented but not wired to any UI. Needs an "Export XLSX" button alongside the existing "Export PDF" on the admin ticket review page.
 - [ ] **Reports: PDF export** — export the filtered Reports view (KPIs + hours grid + ticket table) as a single PDF. User confirmed this is secondary to the on-screen visualization (which shipped in Phase 10).
