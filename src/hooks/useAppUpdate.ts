@@ -1,46 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRegisterSW } from 'virtual:pwa-register/react'
 
-declare const __BUILD_TIME__: string
-
-const CURRENT_BUILD = __BUILD_TIME__
-const POLL_INTERVAL = 60_000 // check every 60 seconds
-
+/**
+ * Update detection backed by the service worker.
+ *
+ * When a new build is deployed, the SW that vite-plugin-pwa registers picks
+ * up the new asset manifest, installs it as the "waiting" worker, and fires
+ * `onNeedRefresh`. We surface that as `updateAvailable` so the existing
+ * UpdateBanner can show its "A new version is available" prompt.
+ *
+ * Calling `refresh()` invokes `updateServiceWorker(true)` which sends
+ * `skipWaiting` to the new worker and reloads the page so the user
+ * actually runs the new bundle.
+ *
+ * In dev the SW is disabled (see vite.config `devOptions.enabled: false`),
+ * so the hook resolves to a permanent `updateAvailable: false`.
+ */
 export function useAppUpdate() {
-  const [updateAvailable, setUpdateAvailable] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    async function check() {
-      try {
-        const res = await fetch('/version.json', {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' },
-        })
-        if (!res.ok) return
-        const { buildTime } = await res.json()
-        if (buildTime && buildTime !== CURRENT_BUILD) {
-          setUpdateAvailable(true)
-        }
-      } catch {
-        // network error — ignore
-      }
-    }
-
-    // Start polling after first interval (no need to check immediately on mount)
-    intervalRef.current = setInterval(check, POLL_INTERVAL)
-
-    // Also check on tab focus (user returns after being away)
-    function onFocus() { check() }
-    window.addEventListener('focus', onFocus)
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      window.removeEventListener('focus', onFocus)
-    }
-  }, [])
+  const {
+    needRefresh: [updateAvailable],
+    updateServiceWorker,
+  } = useRegisterSW({
+    onRegisterError(error) {
+      // Surface SW registration failures in the console for debugging but
+      // don't crash the app — fall back to the no-update path.
+      console.warn('[pwa] SW registration failed:', error)
+    },
+  })
 
   function refresh() {
-    window.location.reload()
+    // `true` = reload after the new SW takes over.
+    void updateServiceWorker(true)
   }
 
   return { updateAvailable, refresh }
