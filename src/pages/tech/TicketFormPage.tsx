@@ -23,6 +23,7 @@ import type { TicketFormData } from '@/hooks/useTickets'
 import { cn } from '@/lib/utils'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
+import { TimeSelect } from '@/components/TimeSelect'
 
 // ---- Schema ----
 const materialSchema = z.object({
@@ -40,6 +41,7 @@ const laborSchema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
   classification_snapshot: z.string().optional().default(''),
+  entry_mode: z.enum(['clock', 'flat']).default('clock'),
   start_time: z.string().optional().default(''),
   end_time: z.string().optional().default(''),
   hours: z.number().nullable().default(null),
@@ -112,39 +114,6 @@ function Section({
   )
 }
 
-// ---- 15-minute time select ----
-const TIME_OPTIONS: { value: string; label: string }[] = []
-for (let h = 0; h < 24; h++) {
-  for (const m of [0, 15, 30, 45]) {
-    const hh = String(h).padStart(2, '0')
-    const mm = String(m).padStart(2, '0')
-    const period = h >= 12 ? 'PM' : 'AM'
-    const hour12 = h % 12 || 12
-    TIME_OPTIONS.push({ value: `${hh}:${mm}`, label: `${hour12}:${mm} ${period}` })
-  }
-}
-
-function TimeSelect({
-  value, onChange, disabled,
-}: {
-  value: string
-  onChange: (v: string) => void
-  disabled?: boolean
-}) {
-  return (
-    <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger className="h-9">
-        <SelectValue placeholder="--:-- --" />
-      </SelectTrigger>
-      <SelectContent className="max-h-60">
-        {TIME_OPTIONS.map(o => (
-          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  )
-}
-
 // ---- Row delete button ----
 function DeleteRowBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
   return (
@@ -186,6 +155,7 @@ export function TicketFormPage() {
     classification_snapshot: (classifications as { id: string; name: string }[]).find(
       c => c.id === profile?.classification_id
     )?.name ?? '',
+    entry_mode: 'clock' as const,
     start_time: '',
     end_time: '',
     hours: null,
@@ -232,7 +202,7 @@ export function TicketFormPage() {
       job_location: string | null; job_problem: string | null; ticket_type: string | null
       work_date: string; work_description: string | null; equipment_enabled: boolean
       ticket_materials: { id: string; sort_order: number; qty: number; part_number: string | null; description: string | null }[]
-      ticket_labor: { id: string; sort_order: number; user_id: string | null; first_name: string; last_name: string; classification_snapshot: string | null; start_time: string | null; end_time: string | null; hours: number | null; reg_rate: number | null }[]
+      ticket_labor: { id: string; sort_order: number; user_id: string | null; first_name: string; last_name: string; classification_snapshot: string | null; entry_mode: string; start_time: string | null; end_time: string | null; hours: number | null; reg_rate: number | null }[]
       ticket_vehicles: { id: string; sort_order: number; vehicle_id: string | null; vehicle_label: string | null; mileage_start: number | null; mileage_end: number | null; rate: number | null }[]
       ticket_equipment: { id: string; sort_order: number; equip_number: string | null; hours: number | null; rate: number | null }[]
     }
@@ -250,6 +220,7 @@ export function TicketFormPage() {
       labor: t.ticket_labor.map(l => ({
         ...l,
         classification_snapshot: l.classification_snapshot ?? '',
+        entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock') as 'clock' | 'flat',
         // Supabase returns time as "HH:MM:SS" — slice to "HH:MM" to match Select options
         start_time: l.start_time?.slice(0, 5) ?? '',
         end_time: l.end_time?.slice(0, 5) ?? '',
@@ -304,13 +275,15 @@ export function TicketFormPage() {
   const watchedAll = watch()
   useDraftAutosave(draftId, watchedAll as unknown as TicketFormData)
 
-  // Auto-calc hours when start/end change
+  // Auto-calc hours when start/end change — only for clock-mode rows.
+  // Flat-mode rows store hours directly from the manual input, so we leave them alone.
   useEffect(() => {
     watchedLabor.forEach((row, i) => {
+      if (row.entry_mode === 'flat') return
       const h = calcHours(row.start_time ?? '', row.end_time ?? '')
       if (h !== row.hours) setValue(`labor.${i}.hours`, h)
     })
-  }, [watchedLabor.map(r => `${r.start_time}|${r.end_time}`).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watchedLabor.map(r => `${r.entry_mode}|${r.start_time}|${r.end_time}`).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-calc vehicle miles
   useEffect(() => {
@@ -378,6 +351,7 @@ export function TicketFormPage() {
       first_name: '',
       last_name: '',
       classification_snapshot: '',
+      entry_mode: 'clock',
       start_time: '',
       end_time: '',
       hours: null,
@@ -626,11 +600,36 @@ export function TicketFormPage() {
           <div className="space-y-4">
             {labor.fields.map((field, i) => {
               const hours = watchedLabor[i]?.hours
+              const isFlat = watchedLabor[i]?.entry_mode === 'flat'
               return (
                 <div key={field.id} className="rounded-md border p-3 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Tech #{i + 1}</span>
-                    <DeleteRowBtn onClick={() => labor.remove(i)} disabled={labor.fields.length === 1} />
+                    <div className="flex items-center gap-3">
+                      <Label
+                        htmlFor={`labor-${i}-flat`}
+                        className="text-xs font-normal text-muted-foreground cursor-pointer flex items-center gap-1.5"
+                      >
+                        Flat hours
+                        <Switch
+                          id={`labor-${i}-flat`}
+                          checked={isFlat}
+                          onCheckedChange={(checked) => {
+                            const mode = checked ? 'flat' : 'clock'
+                            setValue(`labor.${i}.entry_mode`, mode)
+                            if (checked) {
+                              // Switching to flat: keep current hours editable, drop start/end.
+                              setValue(`labor.${i}.start_time`, '')
+                              setValue(`labor.${i}.end_time`, '')
+                            } else {
+                              // Switching to clock: reset hours so the auto-compute can take over.
+                              setValue(`labor.${i}.hours`, null)
+                            }
+                          }}
+                        />
+                      </Label>
+                      <DeleteRowBtn onClick={() => labor.remove(i)} disabled={labor.fields.length === 1} />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -668,28 +667,46 @@ export function TicketFormPage() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 items-end">
-                    <div className="space-y-1">
-                      <Label className="text-xs">Start Time</Label>
-                      <TimeSelect
-                        value={watch(`labor.${i}.start_time`) ?? ''}
-                        onChange={v => setValue(`labor.${i}.start_time`, v)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">End Time</Label>
-                      <TimeSelect
-                        value={watch(`labor.${i}.end_time`) ?? ''}
-                        onChange={v => setValue(`labor.${i}.end_time`, v)}
-                      />
-                    </div>
+                  {isFlat ? (
                     <div className="space-y-1">
                       <Label className="text-xs">Hours</Label>
-                      <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm font-medium">
-                        {hours != null ? hours.toFixed(2) : '—'}
+                      <Input
+                        type="number"
+                        step="0.25"
+                        min="0"
+                        inputMode="decimal"
+                        className="h-9"
+                        value={hours ?? ''}
+                        onChange={e => {
+                          const v = e.target.value
+                          setValue(`labor.${i}.hours`, v === '' ? null : parseFloat(v))
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 items-end">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Start Time</Label>
+                        <TimeSelect
+                          value={watch(`labor.${i}.start_time`) ?? ''}
+                          onChange={v => setValue(`labor.${i}.start_time`, v)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">End Time</Label>
+                        <TimeSelect
+                          value={watch(`labor.${i}.end_time`) ?? ''}
+                          onChange={v => setValue(`labor.${i}.end_time`, v)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Hours</Label>
+                        <div className="h-9 flex items-center px-3 rounded-md border bg-muted text-sm font-medium">
+                          {hours != null ? hours.toFixed(2) : '—'}
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )
             })}

@@ -21,6 +21,8 @@ export interface TicketLaborInput {
   first_name: string
   last_name: string
   classification_snapshot: string
+  /** 'clock' uses start/end to compute hours; 'flat' stores hours directly. */
+  entry_mode: 'clock' | 'flat'
   start_time: string
   end_time: string
   hours: number | null
@@ -279,7 +281,17 @@ export function useDeleteTicket() {
 // --- Admin: update line item pricing/overrides ---
 export interface AdminLineEdits {
   materials?: { id: string; price_each: number | null }[]
-  labor?: { id: string; reg_rate: number | null; ot_rate: number | null; reg_hours: number | null; ot_hours: number | null }[]
+  labor?: {
+    id: string
+    reg_rate: number | null
+    ot_rate: number | null
+    reg_hours: number | null
+    ot_hours: number | null
+    entry_mode?: 'clock' | 'flat'
+    start_time?: string | null
+    end_time?: string | null
+    hours?: number | null
+  }[]
   vehicles?: { id: string; rate: number | null }[]
   equipment?: { id: string; rate: number | null; hours: number | null }[]
 }
@@ -298,14 +310,20 @@ export function useAdminUpdateTicketPricing() {
           .update({ price_each: m.price_each }).eq('id', m.id))
       }
       for (const l of edits.labor ?? []) {
+        // Only include the optional fields when supplied so admin pricing-only
+        // saves don't accidentally clobber start/end/hours/entry_mode.
+        const patch: Record<string, unknown> = {
+          reg_rate: l.reg_rate,
+          ot_rate: l.ot_rate,
+          reg_hours: l.reg_hours,
+          ot_hours: l.ot_hours,
+        }
+        if (l.entry_mode !== undefined) patch.entry_mode = l.entry_mode
+        if (l.start_time !== undefined) patch.start_time = l.start_time
+        if (l.end_time !== undefined) patch.end_time = l.end_time
+        if (l.hours !== undefined) patch.hours = l.hours
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        updates.push((supabase.from('ticket_labor') as any)
-          .update({
-            reg_rate: l.reg_rate,
-            ot_rate: l.ot_rate,
-            reg_hours: l.reg_hours,
-            ot_hours: l.ot_hours,
-          }).eq('id', l.id))
+        updates.push((supabase.from('ticket_labor') as any).update(patch).eq('id', l.id))
       }
       for (const v of edits.vehicles ?? []) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -578,18 +596,23 @@ async function saveChildRows(ticketId: string, form: TicketFormData) {
     inserts.push(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase.from('ticket_labor') as any).insert(
-        form.labor.map(l => ({
-          ticket_id: ticketId,
-          sort_order: l.sort_order,
-          user_id: l.user_id || null,
-          first_name: l.first_name,
-          last_name: l.last_name,
-          classification_snapshot: l.classification_snapshot || null,
-          start_time: l.start_time || null,
-          end_time: l.end_time || null,
-          hours: l.hours ?? null,
-          reg_rate: l.reg_rate ?? null,
-        }))
+        form.labor.map(l => {
+          const isFlat = l.entry_mode === 'flat'
+          return {
+            ticket_id: ticketId,
+            sort_order: l.sort_order,
+            user_id: l.user_id || null,
+            first_name: l.first_name,
+            last_name: l.last_name,
+            classification_snapshot: l.classification_snapshot || null,
+            entry_mode: isFlat ? 'flat' : 'clock',
+            // Flat rows persist as start/end NULL with hours coming from the manual input.
+            start_time: isFlat ? null : (l.start_time || null),
+            end_time: isFlat ? null : (l.end_time || null),
+            hours: l.hours ?? null,
+            reg_rate: l.reg_rate ?? null,
+          }
+        })
       )
     )
   }

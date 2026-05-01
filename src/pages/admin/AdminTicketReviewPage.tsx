@@ -26,8 +26,9 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
+import { TimeSelect } from '@/components/TimeSelect'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
-import { formatTime } from '@/lib/timeUtils'
+import { formatTime, calcHours } from '@/lib/timeUtils'
 import { format } from 'date-fns'
 
 interface MaterialRow {
@@ -44,6 +45,7 @@ interface LaborRow {
   first_name: string
   last_name: string
   classification_snapshot: string | null
+  entry_mode: 'clock' | 'flat'
   start_time: string | null
   end_time: string | null
   hours: number | null
@@ -137,7 +139,12 @@ export function AdminTicketReviewPage() {
   useEffect(() => {
     if (!t) return
     setMaterials(t.ticket_materials.map(m => ({ ...m })))
-    setLabor(t.ticket_labor.map(l => ({ ...l })))
+    setLabor(t.ticket_labor.map(l => ({
+      ...l,
+      entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock') as 'clock' | 'flat',
+      start_time: l.start_time ? l.start_time.slice(0, 5) : l.start_time,
+      end_time: l.end_time ? l.end_time.slice(0, 5) : l.end_time,
+    })))
     setVehicles(t.ticket_vehicles.map(v => ({ ...v })))
     setEquipment(t.ticket_equipment.map(e => ({ ...e })))
     setDirty(false)
@@ -224,6 +231,40 @@ export function AdminTicketReviewPage() {
     setDirty(true)
   }
 
+  function updateLaborTime(id: string, field: 'start_time' | 'end_time', value: string) {
+    setLabor(prev => prev.map(l => {
+      if (l.id !== id) return l
+      const start = field === 'start_time' ? value : (l.start_time ?? '')
+      const end = field === 'end_time' ? value : (l.end_time ?? '')
+      const newHours = calcHours(start, end)
+      return {
+        ...l,
+        [field]: value || null,
+        hours: newHours,
+      }
+    }))
+    setDirty(true)
+  }
+
+  function updateLaborMode(id: string, mode: 'clock' | 'flat') {
+    setLabor(prev => prev.map(l => {
+      if (l.id !== id) return l
+      if (mode === 'flat') {
+        // Switching to flat: keep hours so admin can edit, drop start/end.
+        return { ...l, entry_mode: 'flat', start_time: null, end_time: null }
+      }
+      // Switching to clock: clear hours and reg/ot splits — admin must enter times next.
+      return {
+        ...l,
+        entry_mode: 'clock',
+        hours: null,
+        reg_hours: null,
+        ot_hours: null,
+      }
+    }))
+    setDirty(true)
+  }
+
   function updateVehicle(id: string, rate: string) {
     setVehicles(prev => prev.map(v => v.id === id ? { ...v, rate: num(rate) } : v))
     setDirty(true)
@@ -243,6 +284,10 @@ export function AdminTicketReviewPage() {
         ot_rate: l.ot_rate,
         reg_hours: l.reg_hours,
         ot_hours: l.ot_hours,
+        entry_mode: l.entry_mode,
+        start_time: l.start_time,
+        end_time: l.end_time,
+        hours: l.hours,
       })),
       vehicles: vehicles.map(v => ({ id: v.id, rate: v.rate })),
       equipment: equipment.map(e => ({ id: e.id, rate: e.rate, hours: e.hours })),
@@ -431,24 +476,77 @@ export function AdminTicketReviewPage() {
               const reg = (l.reg_rate ?? 0) * (l.reg_hours ?? 0)
               const ot = (l.ot_rate ?? 0) * (l.ot_hours ?? 0)
               const rowTotal = reg + ot
+              const isFlat = l.entry_mode === 'flat'
               return (
                 <div key={l.id} className="rounded-md border p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
                       <p className="font-medium text-sm">{l.first_name} {l.last_name}</p>
                       <p className="text-xs text-muted-foreground">{l.classification_snapshot || '—'}</p>
                     </div>
-                    <span className="text-sm font-semibold tabular-nums">${rowTotal.toFixed(2)}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <Label
+                        htmlFor={`admin-labor-${l.id}-flat`}
+                        className="text-xs font-normal text-muted-foreground cursor-pointer flex items-center gap-1.5"
+                      >
+                        Flat hours
+                        <Switch
+                          id={`admin-labor-${l.id}-flat`}
+                          checked={isFlat}
+                          disabled={!canEdit}
+                          onCheckedChange={(checked) => updateLaborMode(l.id, checked ? 'flat' : 'clock')}
+                        />
+                      </Label>
+                      <span className="text-sm font-semibold tabular-nums">${rowTotal.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    {l.start_time && (
-                      <span>
-                        <Clock className="h-3 w-3 inline mr-0.5" />
-                        {formatTime(l.start_time)} – {formatTime(l.end_time)}
-                      </span>
-                    )}
-                    {l.hours != null && <span>Total: {Number(l.hours).toFixed(2)} hrs</span>}
-                  </div>
+                  {isFlat ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-end">
+                      <div className="sm:col-span-1">
+                        <Label className="text-xs">Hours</Label>
+                        <Input
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          inputMode="decimal"
+                          className="h-8"
+                          value={l.hours ?? ''}
+                          onChange={e => updateLaborField(l.id, 'hours', e.target.value)}
+                          disabled={!canEdit}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 items-end">
+                      <div>
+                        <Label className="text-xs">Start Time</Label>
+                        <TimeSelect
+                          value={l.start_time ?? ''}
+                          onChange={v => updateLaborTime(l.id, 'start_time', v)}
+                          disabled={!canEdit}
+                          className="h-8"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">End Time</Label>
+                        <TimeSelect
+                          value={l.end_time ?? ''}
+                          onChange={v => updateLaborTime(l.id, 'end_time', v)}
+                          disabled={!canEdit}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="text-xs text-muted-foreground self-center">
+                        {l.start_time && l.end_time && (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(l.start_time)} – {formatTime(l.end_time)}
+                          </span>
+                        )}
+                        {l.hours != null && <span className="ml-2">Total: {Number(l.hours).toFixed(2)} hrs</span>}
+                      </div>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     <div>
                       <Label className="text-xs">Reg Hrs</Label>

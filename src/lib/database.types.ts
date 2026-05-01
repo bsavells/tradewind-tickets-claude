@@ -534,6 +534,7 @@ export type Database = {
         Row: {
           classification_snapshot: string | null
           end_time: string | null
+          entry_mode: string
           first_name: string
           hours: number | null
           id: string
@@ -553,6 +554,7 @@ export type Database = {
         Insert: {
           classification_snapshot?: string | null
           end_time?: string | null
+          entry_mode?: string
           first_name?: string
           hours?: number | null
           id?: string
@@ -572,6 +574,7 @@ export type Database = {
         Update: {
           classification_snapshot?: string | null
           end_time?: string | null
+          entry_mode?: string
           first_name?: string
           hours?: number | null
           id?: string
