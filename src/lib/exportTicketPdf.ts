@@ -2,7 +2,9 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { format } from 'date-fns'
 import { formatTime } from '@/lib/timeUtils'
-import logoUrl from '@/assets/tc_horizontal_with_cerebus.png'
+// Inline as base64 data URL so jsPDF.addImage gets bytes directly
+// (a bare URL fails in dev where Vite serves source assets as JS shims).
+import logoDataUrl from '@/assets/TradewindLogo_blue_line.png?inline'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface ExportTicketData {
@@ -128,12 +130,15 @@ export async function exportTicketPdf(
   doc.setLineWidth(0.6)
   doc.line(0, HEADER_H, pageW, HEADER_H)
 
-  // Logo — use exact aspect ratio, capped at 95mm wide so ticket number has room
-  const logoAspect = 598 / 84         // exact pixel ratio from source image (7.12)
-  const logoW = 95                    // mm — leaves ~85mm for ticket number area
-  const logoH = logoW / logoAspect    // ~13.3 mm tall
+  // Logo — use exact aspect ratio, sized so the wordmark sits comfortably
+  // inside the header band with the ticket number on the right.
+  const logoAspect = 2046 / 404       // exact pixel ratio from source image (5.06)
+  const logoW = 85                    // mm — leaves ~95mm for ticket number area
+  const logoH = logoW / logoAspect    // ~16.8 mm tall
   const logoY = (HEADER_H - logoH) / 2  // vertically centered in header
-  doc.addImage(logoUrl, 'PNG', PAGE_MARGIN, logoY, logoW, logoH)
+  // 'FAST' compression keeps the embedded PNG roughly the size of the source
+  // file (~28 KB) instead of expanding to raw RGBA (~3 MB).
+  doc.addImage(logoDataUrl, 'PNG', PAGE_MARGIN, logoY, logoW, logoH, undefined, 'FAST')
 
   // Ticket number (right-aligned, bold blue)
   doc.setFont('helvetica', 'bold')
