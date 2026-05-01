@@ -87,7 +87,10 @@ export function TicketDetailPage() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      await submitTicket.mutateAsync(t.id)
+      const result = await submitTicket.mutateAsync(t.id)
+      if (result && 'queued' in result) {
+        setSubmitError("You're offline — submission queued and will send when reconnected.")
+      }
       navigate('/tickets')
     } catch (err: unknown) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to submit. Please try again.')

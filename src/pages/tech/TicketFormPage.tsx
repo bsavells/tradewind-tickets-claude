@@ -316,9 +316,22 @@ export function TicketFormPage() {
     try {
       const data = values as unknown as TicketFormData
       if (isEdit && id) {
-        await updateTicket.mutateAsync({ id, form: data })
+        const result = await updateTicket.mutateAsync({ id, form: data })
+        if (result && 'queued' in result) {
+          // Update was queued — go back to the list with a friendly message.
+          setSaveError("You're offline — saved locally and will sync when reconnected.")
+          navigate('/tickets')
+          return
+        }
       } else {
         const ticket = await createTicket.mutateAsync(data)
+        if ('queued' in ticket) {
+          // Create was queued — keep the local draft as a fallback record and
+          // bounce to the list. The OfflineBanner shows the pending count.
+          setSaveError("You're offline — ticket queued and will be created when reconnected.")
+          navigate('/tickets')
+          return
+        }
         await clearDraft('new')
         navigate(`/tickets/${ticket.id}`, { replace: true })
         return
@@ -335,6 +348,11 @@ export function TicketFormPage() {
   async function handleAutoSave(): Promise<string> {
     const data = getValues() as unknown as TicketFormData
     const ticket = await createTicket.mutateAsync(data)
+    if ('queued' in ticket) {
+      // Auto-save while offline: there's no server ID yet, so let the caller
+      // fall back to the autosaved draft path instead of navigating.
+      throw new Error('queued')
+    }
     await clearDraft('new')
     navigate(`/tickets/${ticket.id}/edit`, { replace: true })
     return ticket.id

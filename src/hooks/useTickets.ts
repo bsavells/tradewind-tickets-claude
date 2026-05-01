@@ -1,6 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { enqueue as enqueueSync } from '@/lib/syncQueue'
+
+/**
+ * Result type for mutations that may be queued when the network is down.
+ * Use `'queued' in result` to discriminate at the callsite.
+ */
+export type QueuedResult<T> = T | { queued: true }
+
+/** Network-shaped failures we should defer to the retry queue. */
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof TypeError) return true
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const status = (err as any)?.status
+  if (typeof status === 'number') {
+    return status >= 500 || status === 408 || status === 429 || status === 0
+  }
+  const msg = String((err as Error)?.message ?? '').toLowerCase()
+  return msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout')
+}
 import type { Database } from '@/lib/database.types'
 
 type Ticket = Database['public']['Tables']['tickets']['Row']
@@ -149,39 +168,59 @@ export function useCreateTicket() {
   const { profile } = useAuth()
 
   return useMutation({
-    mutationFn: async (form: TicketFormData) => {
-      // 1. Generate ticket number via RPC
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: ticketNumber, error: numErr } = await (supabase.rpc as any)(
-        'next_ticket_number', { p_company_id: profile!.company_id }
-      )
-      if (numErr) throw numErr
+    mutationFn: async (form: TicketFormData): Promise<QueuedResult<Ticket>> => {
+      const queueOp = () => enqueueSync({
+        kind: 'ticket_create',
+        form,
+        companyId: profile!.company_id,
+        actorId: profile!.id,
+        actorName: `${profile!.first_name} ${profile!.last_name}`,
+      })
 
-      // 2. Insert ticket
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: ticket, error: ticketErr } = await (supabase.from('tickets') as any)
-        .insert({
-          company_id: profile!.company_id,
-          ticket_number: ticketNumber,
-          customer_id: form.customer_id,
-          requestor: form.requestor,
-          job_number: form.job_number || null,
-          job_location: form.job_location || null,
-          job_problem: form.job_problem || null,
-          ticket_type: form.ticket_type || null,
-          work_date: form.work_date,
-          work_description: form.work_description || null,
-          equipment_enabled: form.equipment_enabled,
-          status: 'draft',
-          created_by: profile!.id,
-        })
-        .select()
-        .single()
-      if (ticketErr) throw ticketErr
+      // Pre-flight: if we know we're offline, skip the request entirely.
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await queueOp()
+        return { queued: true }
+      }
 
-      const ticketId = ticket.id
-      await saveChildRows(ticketId, form)
-      return ticket as Ticket
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: ticketNumber, error: numErr } = await (supabase.rpc as any)(
+          'next_ticket_number', { p_company_id: profile!.company_id }
+        )
+        if (numErr) throw numErr
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: ticket, error: ticketErr } = await (supabase.from('tickets') as any)
+          .insert({
+            company_id: profile!.company_id,
+            ticket_number: ticketNumber,
+            customer_id: form.customer_id,
+            requestor: form.requestor,
+            job_number: form.job_number || null,
+            job_location: form.job_location || null,
+            job_problem: form.job_problem || null,
+            ticket_type: form.ticket_type || null,
+            work_date: form.work_date,
+            work_description: form.work_description || null,
+            equipment_enabled: form.equipment_enabled,
+            status: 'draft',
+            created_by: profile!.id,
+          })
+          .select()
+          .single()
+        if (ticketErr) throw ticketErr
+
+        const ticketId = ticket.id
+        await saveChildRows(ticketId, form)
+        return ticket as Ticket
+      } catch (err) {
+        if (isRetryableError(err)) {
+          await queueOp()
+          return { queued: true }
+        }
+        throw err
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
@@ -194,26 +233,43 @@ export function useUpdateTicket() {
   const qc = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, form }: { id: string; form: TicketFormData }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('tickets') as any)
-        .update({
-          customer_id: form.customer_id,
-          requestor: form.requestor,
-          job_number: form.job_number || null,
-          job_location: form.job_location || null,
-          job_problem: form.job_problem || null,
-          ticket_type: form.ticket_type || null,
-          work_date: form.work_date,
-          work_description: form.work_description || null,
-          equipment_enabled: form.equipment_enabled,
-        })
-        .eq('id', id)
-      if (error) throw error
+    mutationFn: async (
+      { id, form }: { id: string; form: TicketFormData },
+    ): Promise<QueuedResult<void>> => {
+      const queueOp = () => enqueueSync({ kind: 'ticket_update', ticketId: id, form })
 
-      // Replace all child rows
-      await deleteChildRows(id)
-      await saveChildRows(id, form)
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await queueOp()
+        return { queued: true }
+      }
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from('tickets') as any)
+          .update({
+            customer_id: form.customer_id,
+            requestor: form.requestor,
+            job_number: form.job_number || null,
+            job_location: form.job_location || null,
+            job_problem: form.job_problem || null,
+            ticket_type: form.ticket_type || null,
+            work_date: form.work_date,
+            work_description: form.work_description || null,
+            equipment_enabled: form.equipment_enabled,
+          })
+          .eq('id', id)
+        if (error) throw error
+
+        await deleteChildRows(id)
+        await saveChildRows(id, form)
+        return undefined
+      } catch (err) {
+        if (isRetryableError(err)) {
+          await queueOp()
+          return { queued: true }
+        }
+        throw err
+      }
     },
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
@@ -228,26 +284,47 @@ export function useSubmitTicket() {
   const { profile } = useAuth()
 
   return useMutation({
-    mutationFn: async (ticketId: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase.from('tickets') as any)
-        .update({ status: 'submitted' })
-        .eq('id', ticketId)
-        .in('status', ['draft', 'returned'])
-      if (error) throw error
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('ticket_audit_log') as any).insert({
-        ticket_id: ticketId,
-        actor_id: profile!.id,
-        actor_name: `${profile!.first_name} ${profile!.last_name}`,
-        action: 'submitted',
+    mutationFn: async (ticketId: string): Promise<QueuedResult<void>> => {
+      const queueOp = () => enqueueSync({
+        kind: 'ticket_submit',
+        ticketId,
+        actorId: profile!.id,
+        actorName: `${profile!.first_name} ${profile!.last_name}`,
       })
 
-      // Fire-and-forget: notify admins
-      supabase.functions.invoke('notify-ticket-event', {
-        body: { ticket_id: ticketId, event_kind: 'ticket_submitted' },
-      }).catch(console.error)
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await queueOp()
+        return { queued: true }
+      }
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error } = await (supabase.from('tickets') as any)
+          .update({ status: 'submitted' })
+          .eq('id', ticketId)
+          .in('status', ['draft', 'returned'])
+        if (error) throw error
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('ticket_audit_log') as any).insert({
+          ticket_id: ticketId,
+          actor_id: profile!.id,
+          actor_name: `${profile!.first_name} ${profile!.last_name}`,
+          action: 'submitted',
+        })
+
+        // Fire-and-forget: notify admins
+        supabase.functions.invoke('notify-ticket-event', {
+          body: { ticket_id: ticketId, event_kind: 'ticket_submitted' },
+        }).catch(console.error)
+        return undefined
+      } catch (err) {
+        if (isRetryableError(err)) {
+          await queueOp()
+          return { queued: true }
+        }
+        throw err
+      }
     },
     onSuccess: (_data, ticketId) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })

@@ -1,8 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { enqueue as enqueueSync } from '@/lib/syncQueue'
+import type { QueuedResult } from '@/hooks/useTickets'
 
 const BUCKET = 'ticket-photos'
+
+function isRetryableError(err: unknown): boolean {
+  if (err instanceof TypeError) return true
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const status = (err as any)?.status
+  if (typeof status === 'number') {
+    return status >= 500 || status === 408 || status === 429 || status === 0
+  }
+  const msg = String((err as Error)?.message ?? '').toLowerCase()
+  return msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout')
+}
 export const MAX_TICKET_PHOTOS = 10
 
 export interface TicketPhoto {
@@ -59,41 +72,60 @@ export function useUploadPhoto() {
       ticketId: string
       file: File
       caption?: string
-    }): Promise<TicketPhoto> => {
-      // Derive extension from MIME type
-      const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg'
-      const uuid = crypto.randomUUID()
-      const path = `${profile!.company_id}/${ticketId}/${uuid}.${ext}`
+    }): Promise<QueuedResult<TicketPhoto>> => {
+      const queueOp = () => enqueueSync({
+        kind: 'photo_upload',
+        ticketId,
+        // Stash a Blob copy — File extends Blob and IDB serializes it natively.
+        blob: file,
+        mimeType: file.type,
+        caption,
+        companyId: profile!.company_id,
+        actorId: profile!.id,
+      })
 
-      // Upload to storage
-      const { error: uploadErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, file, { contentType: file.type, upsert: false })
-      if (uploadErr) throw uploadErr
-
-      // Insert DB row
-      const { data: row, error: insertErr } = await supabase
-        .from('ticket_photos')
-        .insert({
-          ticket_id: ticketId,
-          file_url: path,
-          caption: caption || null,
-          uploaded_by: profile!.id,
-        })
-        .select()
-        .single()
-      if (insertErr) {
-        // Best-effort cleanup of orphaned storage file
-        await supabase.storage.from(BUCKET).remove([path])
-        throw insertErr
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        await queueOp()
+        return { queued: true }
       }
 
-      // Get signed URL for immediate display
-      const { data: signed } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(path, 3600)
+      try {
+        const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg'
+        const uuid = crypto.randomUUID()
+        const path = `${profile!.company_id}/${ticketId}/${uuid}.${ext}`
 
-      return { ...row, signedUrl: signed?.signedUrl ?? '' } as TicketPhoto
+        const { error: uploadErr } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, file, { contentType: file.type, upsert: false })
+        if (uploadErr) throw uploadErr
+
+        const { data: row, error: insertErr } = await supabase
+          .from('ticket_photos')
+          .insert({
+            ticket_id: ticketId,
+            file_url: path,
+            caption: caption || null,
+            uploaded_by: profile!.id,
+          })
+          .select()
+          .single()
+        if (insertErr) {
+          await supabase.storage.from(BUCKET).remove([path])
+          throw insertErr
+        }
+
+        const { data: signed } = await supabase.storage
+          .from(BUCKET)
+          .createSignedUrl(path, 3600)
+
+        return { ...row, signedUrl: signed?.signedUrl ?? '' } as TicketPhoto
+      } catch (err) {
+        if (isRetryableError(err)) {
+          await queueOp()
+          return { queued: true }
+        }
+        throw err
+      }
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['ticket-photos', ticketId] })

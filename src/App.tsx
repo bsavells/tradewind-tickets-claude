@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AppShell } from '@/components/AppShell'
@@ -13,6 +13,8 @@ import { RootRedirect } from '@/pages/RootRedirect'
 import { SignTicketPage } from '@/pages/SignTicketPage'
 import { UpdateBanner } from '@/components/UpdateBanner'
 import { InstallBanner } from '@/components/InstallBanner'
+import { OfflineBanner } from '@/components/OfflineBanner'
+import { startSyncRunner, onOpCompleted } from '@/lib/syncRunner'
 
 // Authenticated app routes are code-split per page. lazy() needs a default
 // export, so we adapt our named exports inline.
@@ -51,6 +53,28 @@ function ScrollToTop() {
   return null
 }
 
+/**
+ * Boots the sync queue runner once the React tree mounts and bridges its
+ * "op completed" events to TanStack Query's cache so successfully replayed
+ * mutations show up in the UI without a page reload.
+ */
+function SyncRunnerBridge() {
+  const qc = useQueryClient()
+  useEffect(() => {
+    startSyncRunner()
+    const unsub = onOpCompleted(({ kind, ticketId }) => {
+      if (kind === 'ticket_create' || kind === 'ticket_update' || kind === 'ticket_submit') {
+        qc.invalidateQueries({ queryKey: ['tickets'] })
+        if (ticketId) qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+      } else if (kind === 'photo_upload' && ticketId) {
+        qc.invalidateQueries({ queryKey: ['ticket-photos', ticketId] })
+      }
+    })
+    return () => unsub()
+  }, [qc])
+  return null
+}
+
 function PageLoader() {
   return (
     <div className="flex justify-center items-center h-60">
@@ -71,6 +95,8 @@ export default function App() {
       <AuthProvider>
         <BrowserRouter>
           <ScrollToTop />
+          <SyncRunnerBridge />
+          <OfflineBanner />
           <UpdateBanner />
           <InstallBanner />
           <Suspense fallback={<PageLoader />}>

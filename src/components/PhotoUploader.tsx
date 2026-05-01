@@ -142,7 +142,10 @@ function PhotoUploaderInner({
     }
 
     try {
-      await uploadPhoto.mutateAsync({ ticketId: tid, file })
+      const result = await uploadPhoto.mutateAsync({ ticketId: tid, file })
+      if ('queued' in result) {
+        setUploadError("You're offline — photo queued and will upload when reconnected.")
+      }
     } catch {
       setUploadError('Upload failed. Please try again.')
     } finally {
