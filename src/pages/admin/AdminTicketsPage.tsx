@@ -11,7 +11,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog'
 import { useAllTickets, useReturnTicket, useFinalizeTicket, useDeleteTicket } from '@/hooks/useTickets'
-import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
+// Type-only import is erased at build time. The runtime jsPDF + autotable
+// payload is loaded on demand via dynamic import below.
+import type { ExportTicketData } from '@/lib/exportTicketPdf'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
@@ -83,7 +85,8 @@ export function AdminTicketsPage() {
         .eq('id', ticketId)
         .single()
       if (!error && data) {
-        exportTicketPdf(data as unknown as ExportTicketData)
+        const { exportTicketPdf } = await import('@/lib/exportTicketPdf')
+        await exportTicketPdf(data as unknown as ExportTicketData)
       }
     } finally {
       setExportingPdfIds(prev => { const s = new Set(prev); s.delete(ticketId); return s })

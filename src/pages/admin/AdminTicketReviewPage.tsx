@@ -21,7 +21,9 @@ import {
   useLogTicketExport,
   type AdminLineEdits,
 } from '@/hooks/useTickets'
-import { exportTicketPdf, type ExportTicketData } from '@/lib/exportTicketPdf'
+// Type-only import is erased at build time. The runtime jsPDF + autotable
+// payload is loaded on demand inside the export handler.
+import type { ExportTicketData } from '@/lib/exportTicketPdf'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { PhotoUploader } from '@/components/PhotoUploader'
@@ -355,6 +357,7 @@ export function AdminTicketReviewPage() {
         }
       }
 
+      const { exportTicketPdf } = await import('@/lib/exportTicketPdf')
       await exportTicketPdf(exportData, { includePhotos })
       await logExport.mutateAsync({ ticketId: t.id, format: 'pdf' })
     } finally {
