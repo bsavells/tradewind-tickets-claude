@@ -12,6 +12,7 @@ import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { RootRedirect } from '@/pages/RootRedirect'
 import { SignTicketPage } from '@/pages/SignTicketPage'
 import { UpdateBanner } from '@/components/UpdateBanner'
+import { InstallBanner } from '@/components/InstallBanner'
 
 // Authenticated app routes are code-split per page. lazy() needs a default
 // export, so we adapt our named exports inline.
@@ -71,6 +72,7 @@ export default function App() {
         <BrowserRouter>
           <ScrollToTop />
           <UpdateBanner />
+          <InstallBanner />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Public */}
