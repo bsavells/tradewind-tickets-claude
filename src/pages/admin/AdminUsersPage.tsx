@@ -21,6 +21,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useNotificationPrefs, useUpsertNotificationPref, type EmailFrequency } from '@/hooks/useNotifications'
 import { FreqSelector } from '@/pages/NotificationPrefsPage'
 import type { Database } from '@/lib/database.types'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -529,6 +530,7 @@ function roleRank(u: Profile): number {
 
 // ---- Main page ----
 export function AdminUsersPage() {
+  useDocumentTitle('Users')
   const { profile: currentUser } = useAuth()
   const { data: users = [], isLoading, isError, error } = useProfiles()
   if (isError) console.error('[AdminUsersPage] useProfiles error:', error)
@@ -661,6 +663,7 @@ export function AdminUsersPage() {
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label={`Disable user ${u.first_name} ${u.last_name}`}
                             className="text-destructive hover:text-destructive"
                             title="Disable user"
                             onClick={() => setDisabling(u)}

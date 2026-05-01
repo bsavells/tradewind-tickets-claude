@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CheckCircle2 } from 'lucide-react'
 import { GradientBar, Wordmark } from '@/components/Branding'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const schema = z
   .object({
@@ -22,6 +23,7 @@ const schema = z
 type Form = z.infer<typeof schema>
 
 export function ResetPasswordPage() {
+  useDocumentTitle('Reset password')
   const navigate = useNavigate()
   const [ready, setReady] = useState(false)
   const [done, setDone] = useState(false)

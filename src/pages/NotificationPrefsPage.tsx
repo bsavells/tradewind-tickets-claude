@@ -14,6 +14,7 @@ import {
   type EmailFrequency,
 } from '@/hooks/useNotifications'
 import { useAuth } from '@/contexts/AuthContext'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 // ── Pref definitions per role ────────────────────────────────────────────────
 const ADMIN_PREFS = [
@@ -113,6 +114,7 @@ export function FreqSelector({
 
 // ── Main page ────────────────────────────────────────────────────────────────
 export function NotificationPrefsPage() {
+  useDocumentTitle('Notification settings')
   const { profile, isAdmin } = useAuth()
   const prefs = useNotificationPrefs(profile?.id)
   const upsert = useUpsertNotificationPref()

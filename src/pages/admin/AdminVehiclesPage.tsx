@@ -20,6 +20,7 @@ import {
 import { useVehicles, useUpsertVehicle, useToggleVehicleActive } from '@/hooks/useVehicles'
 import { useProfiles } from '@/hooks/useProfiles'
 import type { Database } from '@/lib/database.types'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type Vehicle = Database['public']['Tables']['vehicles']['Row']
 
@@ -334,6 +335,7 @@ const VEHICLE_SORT_OPTIONS: { key: VehicleSortKey; label: string }[] = [
 ]
 
 export function AdminVehiclesPage() {
+  useDocumentTitle('Vehicles')
   const { data: vehicles = [], isLoading } = useVehicles()
   const { data: users = [] } = useProfiles()
   const toggleActive = useToggleVehicleActive()

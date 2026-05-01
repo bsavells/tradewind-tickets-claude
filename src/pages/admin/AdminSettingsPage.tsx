@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Building2, Users, Tag, Truck, ChevronRight } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const sections = [
   {
@@ -30,6 +31,7 @@ const sections = [
 ]
 
 export function AdminSettingsPage() {
+  useDocumentTitle('Settings')
   const navigate = useNavigate()
 
   return (

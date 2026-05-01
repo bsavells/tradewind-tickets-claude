@@ -23,6 +23,7 @@ import { GradientBar } from '@/components/Branding'
 import { MultiSelect, type MultiSelectOption } from '@/components/MultiSelect'
 import { useCustomers } from '@/hooks/useCustomers'
 import { useProfiles } from '@/hooks/useProfiles'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useReportTickets, type ReportFilters } from '@/hooks/useReports'
 import {
   computeKpis,
@@ -127,6 +128,7 @@ const STATUS_OPTIONS = [
 
 // ── Main page ───────────────────────────────────────────────────────────────
 export function AdminReportsPage() {
+  useDocumentTitle('Reports')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 

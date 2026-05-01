@@ -14,12 +14,15 @@ import { useAuth } from '@/contexts/AuthContext'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime } from '@/lib/timeUtils'
 import { format } from 'date-fns'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { profile, isAdmin } = useAuth()
   const { data: ticket, isLoading } = useTicket(id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useDocumentTitle((ticket as any)?.ticket_number ? `Ticket ${(ticket as any).ticket_number}` : 'Ticket')
   const submitTicket = useSubmitTicket()
   const requestReturn = useRequestReturn()
   const deleteTicket = useDeleteTicket()
@@ -116,7 +119,12 @@ export function TicketDetailPage() {
     <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-5 pb-36">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/tickets')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Back to tickets"
+          onClick={() => navigate('/tickets')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">

@@ -412,6 +412,7 @@ function PhotoRow({
         disabled={deleting}
         className="text-muted-foreground hover:text-destructive transition-colors mt-1 shrink-0 disabled:opacity-40"
         title="Remove photo"
+        aria-label="Remove photo"
       >
         <Trash2 className="h-4 w-4" />
       </button>

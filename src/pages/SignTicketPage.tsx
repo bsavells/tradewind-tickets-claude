@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { CheckCircle, AlertCircle } from 'lucide-react'
 import { SignatureCaptureForm } from '@/components/SignatureCaptureForm'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type InvalidReason = 'expired' | 'used' | 'not_found'
 
@@ -36,6 +37,7 @@ function blobToBase64(blob: Blob): Promise<string> {
 }
 
 export function SignTicketPage() {
+  useDocumentTitle('Sign ticket')
   const { token } = useParams<{ token: string }>()
   const [state, setState] = useState<PageState>({ status: 'loading' })
 

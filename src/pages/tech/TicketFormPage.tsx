@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
 import { TimeSelect } from '@/components/TimeSelect'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 // ---- Schema ----
 const materialSchema = z.object({
@@ -115,13 +116,21 @@ function Section({
 }
 
 // ---- Row delete button ----
-function DeleteRowBtn({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) {
+function DeleteRowBtn({
+  onClick, disabled, label = 'Remove row',
+}: {
+  onClick: () => void
+  disabled?: boolean
+  /** Override for screen-reader-only label, e.g. "Remove labor row" */
+  label?: string
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       className="text-muted-foreground hover:text-destructive disabled:opacity-30 transition-colors"
+      aria-label={label}
     >
       <Trash2 className="h-4 w-4" />
     </button>
@@ -132,6 +141,7 @@ function DeleteRowBtn({ onClick, disabled }: { onClick: () => void; disabled?: b
 export function TicketFormPage() {
   const { id } = useParams<{ id?: string }>()
   const isEdit = !!id
+  useDocumentTitle(isEdit ? 'Edit ticket' : 'New ticket')
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { data: customers = [], isLoading: customersLoading } = useCustomers()
@@ -598,6 +608,7 @@ export function TicketFormPage() {
                   <DeleteRowBtn
                     onClick={() => materials.remove(i)}
                     disabled={materials.fields.length === 1}
+                    label={`Remove material row ${i + 1}`}
                   />
                 </div>
               </div>
@@ -646,7 +657,11 @@ export function TicketFormPage() {
                           }}
                         />
                       </Label>
-                      <DeleteRowBtn onClick={() => labor.remove(i)} disabled={labor.fields.length === 1} />
+                      <DeleteRowBtn
+                      onClick={() => labor.remove(i)}
+                      disabled={labor.fields.length === 1}
+                      label={`Remove labor row ${i + 1}`}
+                    />
                     </div>
                   </div>
 
@@ -753,7 +768,10 @@ export function TicketFormPage() {
                   <div key={field.id} className="rounded-md border p-3 space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-muted-foreground">Vehicle #{i + 1}</span>
-                      <DeleteRowBtn onClick={() => vehicleFields.remove(i)} />
+                      <DeleteRowBtn
+                        onClick={() => vehicleFields.remove(i)}
+                        label={`Remove vehicle row ${i + 1}`}
+                      />
                     </div>
 
                     <div className="space-y-1">
@@ -850,7 +868,10 @@ export function TicketFormPage() {
                     placeholder="0"
                   />
                   <div className="flex items-center justify-center h-9">
-                    <DeleteRowBtn onClick={() => equipment.remove(i)} />
+                    <DeleteRowBtn
+                      onClick={() => equipment.remove(i)}
+                      label={`Remove equipment row ${i + 1}`}
+                    />
                   </div>
                 </div>
               ))}

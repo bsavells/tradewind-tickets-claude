@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GradientBar, Wordmark } from '@/components/Branding'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const loginSchema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -16,6 +17,7 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
+  useDocumentTitle('Sign in')
   const navigate = useNavigate()
   const [error, setError] = useState<React.ReactNode | null>(null)
   const [loading, setLoading] = useState(false)

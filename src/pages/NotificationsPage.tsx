@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useAllNotifications, useMarkNotificationsRead, type Notification } from '@/hooks/useNotifications'
 import { useAuth } from '@/contexts/AuthContext'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 function groupByDate(notifications: Notification[]) {
   const groups: { label: string; items: Notification[] }[] = []
@@ -24,6 +25,7 @@ function groupByDate(notifications: Notification[]) {
 }
 
 export function NotificationsPage() {
+  useDocumentTitle('Notifications')
   const [page, setPage] = useState(0)
   const { data, isLoading } = useAllNotifications(page)
   const markRead = useMarkNotificationsRead()

@@ -14,6 +14,7 @@ import { useClassifications, useUpsertClassification, useToggleClassificationAct
 import { SortableTableHeader } from '@/components/SortableTableHeader'
 import { useTableSort, cmpString, cmpBool, cmpNumber } from '@/hooks/useTableSort'
 import type { Database } from '@/lib/database.types'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type Classification = Database['public']['Tables']['classifications']['Row']
 
@@ -98,6 +99,7 @@ function ClassificationDialog({
 type ClassSortKey = 'name' | 'reg_rate' | 'ot_rate' | 'active'
 
 export function AdminClassificationsPage() {
+  useDocumentTitle('Classifications')
   const { data: classifications = [], isLoading } = useClassifications()
   const toggleActive = useToggleClassificationActive()
   const [addOpen, setAddOpen] = useState(false)

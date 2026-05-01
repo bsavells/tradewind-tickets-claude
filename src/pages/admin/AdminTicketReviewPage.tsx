@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
 import { TimeSelect } from '@/components/TimeSelect'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime, calcHours } from '@/lib/timeUtils'
 import { format } from 'date-fns'
@@ -113,6 +114,8 @@ export function AdminTicketReviewPage() {
   const navigate = useNavigate()
   const { isWritableAdmin } = useAuth()
   const { data: rawTicket, isLoading } = useTicket(id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  useDocumentTitle((rawTicket as any)?.ticket_number ? `Review ${(rawTicket as any).ticket_number}` : 'Review ticket')
   const updatePricing = useAdminUpdateTicketPricing()
   const finalize = useFinalizeTicket()
   const unfinalize = useUnfinalizeTicket()
@@ -372,7 +375,12 @@ export function AdminTicketReviewPage() {
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-5 pb-32">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/admin/tickets')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Back to admin tickets"
+          onClick={() => navigate('/admin/tickets')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1 min-w-0">

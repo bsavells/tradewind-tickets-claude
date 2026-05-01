@@ -18,6 +18,7 @@ import {
   useUpsertContact, useDeleteContact,
 } from '@/hooks/useCustomers'
 import { SortableTableHeader } from '@/components/SortableTableHeader'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useTableSort, cmpString, cmpBool, cmpNumber } from '@/hooks/useTableSort'
 import type { Database } from '@/lib/database.types'
 
@@ -218,11 +219,20 @@ function ContactsPanel({ customer }: { customer: Customer & { customer_contacts:
                 </div>
               </div>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(c)}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Edit contact ${c.name}`}
+                  className="h-7 w-7"
+                  onClick={() => setEditing(c)}
+                >
                   <Pencil className="h-3 w-3" />
                 </Button>
                 <Button
-                  size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Delete contact ${c.name}`}
+                  className="h-7 w-7 text-destructive hover:text-destructive"
                   onClick={() => deleteContact.mutate(c.id)}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -246,6 +256,7 @@ function ContactsPanel({ customer }: { customer: Customer & { customer_contacts:
 type CustomerSortKey = 'name' | 'address' | 'contacts' | 'active'
 
 export function AdminCustomersPage() {
+  useDocumentTitle('Customers')
   const { data: customers = [], isLoading } = useCustomers()
   const toggleActive = useToggleCustomerActive()
   const [addOpen, setAddOpen] = useState(false)

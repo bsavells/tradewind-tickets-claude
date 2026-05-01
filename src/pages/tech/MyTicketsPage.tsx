@@ -14,6 +14,7 @@ import { useMyTickets, useSubmitTicket, useDeleteTicket } from '@/hooks/useTicke
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
 import type { Database } from '@/lib/database.types'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type Ticket = Database['public']['Tables']['tickets']['Row']
 
@@ -101,6 +102,7 @@ function TicketRow({
           <Button
             size="sm"
             variant="ghost"
+            aria-label="Delete draft ticket"
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={onDelete}
           >
@@ -114,6 +116,7 @@ function TicketRow({
 }
 
 export function MyTicketsPage() {
+  useDocumentTitle('My Tickets')
   const navigate = useNavigate()
   const qc = useQueryClient()
   const { profile } = useAuth()

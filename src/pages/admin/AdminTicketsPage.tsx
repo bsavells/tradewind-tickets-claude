@@ -19,6 +19,7 @@ import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Database } from '@/lib/database.types'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 type TicketStatus = Database['public']['Tables']['tickets']['Row']['status']
 
@@ -33,6 +34,7 @@ const STATUS_FILTERS: { value: TicketStatus | 'all'; label: string }[] = [
 const VALID_STATUSES: (TicketStatus | 'all')[] = ['all', 'submitted', 'finalized', 'draft', 'returned']
 
 export function AdminTicketsPage() {
+  useDocumentTitle('All Tickets')
   const navigate = useNavigate()
   const { profile } = useAuth()
   const isWritableAdmin = profile?.role === 'admin' && !profile?.is_readonly_admin

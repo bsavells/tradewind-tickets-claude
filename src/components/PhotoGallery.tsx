@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ChevronLeft, ChevronRight, X, ImageIcon } from 'lucide-react'
 import { useTicketPhotos, type TicketPhoto } from '@/hooks/useTicketPhotos'
 import { cn } from '@/lib/utils'
@@ -66,6 +66,11 @@ export function PhotoGallery({ ticketId }: PhotoGalleryProps) {
       {/* Lightbox */}
       <Dialog open={open} onOpenChange={v => { if (!v) setLightboxIndex(null) }}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden bg-black border-0">
+          {/* Required by Radix for a11y; visually hidden so the lightbox stays clean. */}
+          <DialogTitle className="sr-only">Photo viewer</DialogTitle>
+          <DialogDescription className="sr-only">
+            View, navigate, and close the attached ticket photos.
+          </DialogDescription>
           <div className="relative flex flex-col">
             {/* Close + counter */}
             <div className="absolute top-3 right-3 z-10 flex items-center gap-3">
@@ -75,6 +80,7 @@ export function PhotoGallery({ ticketId }: PhotoGalleryProps) {
               <button
                 onClick={() => setLightboxIndex(null)}
                 className="text-white/70 hover:text-white transition-colors"
+                aria-label="Close photo viewer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -109,6 +115,7 @@ export function PhotoGallery({ ticketId }: PhotoGalleryProps) {
                   onClick={prev}
                   disabled={photos.length <= 1}
                   className="text-white/70 hover:text-white disabled:opacity-30 transition-colors p-1"
+                  aria-label="Previous photo"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </button>
@@ -116,6 +123,7 @@ export function PhotoGallery({ ticketId }: PhotoGalleryProps) {
                   onClick={next}
                   disabled={photos.length <= 1}
                   className="text-white/70 hover:text-white disabled:opacity-30 transition-colors p-1"
+                  aria-label="Next photo"
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>

@@ -8,6 +8,7 @@ import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 function StatCard({
   title,
@@ -40,6 +41,7 @@ function StatCard({
 }
 
 export function AdminDashboardPage() {
+  useDocumentTitle('Admin Dashboard')
   const navigate = useNavigate()
   const { profile } = useAuth()
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useTicketStats()

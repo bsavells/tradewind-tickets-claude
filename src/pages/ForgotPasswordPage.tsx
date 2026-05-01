@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft, Mail } from 'lucide-react'
 import { GradientBar, Wordmark } from '@/components/Branding'
+import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 const schema = z.object({
   email: z.string().email('Enter a valid email'),
@@ -16,6 +17,7 @@ const schema = z.object({
 type Form = z.infer<typeof schema>
 
 export function ForgotPasswordPage() {
+  useDocumentTitle('Forgot password')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)

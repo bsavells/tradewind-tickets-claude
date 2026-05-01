@@ -133,6 +133,14 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen bg-background">
+      {/* Skip-to-content link for keyboard users — invisible until focused. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-md focus:bg-primary focus:px-3 focus:py-1.5 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       {/* Desktop sidebar */}
       <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-[var(--color-tw-navy)]/10 bg-card">
         {sidebar}
@@ -176,7 +184,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>
