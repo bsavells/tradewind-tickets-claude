@@ -307,15 +307,105 @@ Dedicated `/admin/reports` page for aggregate ticket analytics:
 
 ---
 
-### Phase 13 — Inventory System (planned, scope TBD)
-Major new module to track physical hardware deployed at customer facilities. Initial scope ideas (to be refined in a follow-up planning pass):
-- Per-customer, per-facility inventory locations.
-- Part records with serial number, part number, manufacturer/model, install date, status, free-text notes.
-- Photos and document attachments per part.
-- Movement / lifecycle tracking (installed, removed, returned, scrapped, transferred between facilities).
-- Cross-link to tickets where parts were installed, swapped, or removed — automatic inventory updates from ticket materials when applicable.
-- Search and reporting (e.g. "all RTUs at High Peak Compressor Station 4", "every controller installed in 2025").
-Schema, RLS policies, admin UI, tech mobile capture flow, and reporting all to be designed before implementation begins.
+### Phase 13 — Catalog & Inventory
+
+Splits the original "inventory" idea into two coherent products. The first
+ships value to every ticket immediately; the second is a bigger build that
+benefits from having the catalog in place.
+
+#### Phase 13.A — Parts Catalog (next)
+
+Master list of vendor SKUs with per-item markup, used to auto-fill ticket
+materials lines. Source data is the `TWC Inventory & Markup Rates.xlsx`
+spreadsheet that management maintains today (~666 rows across ~30 vendors);
+once imported, the spreadsheet is retired and admins manage the catalog
+in-app.
+
+**Design decisions (locked):**
+- **Per-item markup** stored as `markup_pct` (numeric). Sell price always
+  computed as `unit_cost * (1 + markup_pct/100)` — never persisted, so a
+  cost or markup change ripples everywhere automatically.
+- **Vendor normalization** via a `catalog_vendors` table (`name UNIQUE`)
+  so dropdowns stay clean and we don't accumulate "Jet Specialty" /
+  "Jet specialty" duplicates.
+- **No uniqueness on part_number** — the source data has the same
+  manufacturer SKU appearing multiple times in different sizes, so each
+  catalog row is a UUID with no `(vendor, part_number)` constraint.
+- **Linkage to `ticket_materials`**: nullable `catalog_item_id` FK +
+  keep the existing free-text `part_number`/`description`/`price_each`
+  as snapshots, so historical tickets stay readable even if the catalog
+  row is later edited or deleted.
+- **Default markup for imported rows**: 30% (matches the precedent set
+  by the four hand-marked rows in the source spreadsheet).
+- **Tech-side price suppression** via a Postgres view
+  (`catalog_items_techview`) that omits `unit_cost` and `markup_pct`.
+  Tech-side code reads from the view; admin code reads the base table.
+- **Per-customer markup override** (analogous to per-customer
+  classification rates) → deferred to **13.C** unless demand surfaces.
+
+**13.A.0 — Foundation + import (next session)**
+- Migration: `catalog_vendors` (id, company_id, name UNIQUE, active,
+  created_at) + `catalog_items` (id, vendor_id FK, part_number,
+  description, size, packaging_unit, unit_cost numeric, markup_pct
+  numeric default 30, active, created_at, updated_at). RLS scoped to
+  company; admins write, all authenticated users read.
+- `catalog_items_techview` Postgres view exposing only the fields techs
+  need (id, vendor name, part_number, description, size, packaging_unit,
+  active). Granted SELECT to authenticated users.
+- Add nullable `catalog_item_id` FK to `ticket_materials`.
+- Cleanup pass on the xlsx: drop empty/divider rows, normalize column
+  headers, dedupe vendor strings, then a one-shot import script that
+  seeds the new tables.
+- Types regen + `useCatalogVendors` / `useCatalogItems` /
+  `useCatalogItemsTechview` / `useUpsertCatalogItem` hooks.
+
+**13.A.1 — Admin Catalog page**
+- New `/admin/catalog` route: list with search + vendor filter + active
+  toggle, inline edit, add/remove vendors and items.
+- Markup edit shows live sell-price preview.
+- Bulk operations: nice-to-have, defer if time pressed.
+
+**13.A.2 — Tech ticket-form integration**
+- Typeahead picker on the materials section reading from the techview.
+- Selecting a catalog item auto-fills `part_number` + `description`;
+  tech still sets `qty`. Price stays admin-only (no sell price visible
+  to techs).
+- Admin review reads from the base table and pre-fills `price_each`
+  from `unit_cost * (1 + markup_pct/100)` when a row has a
+  `catalog_item_id`. Admin can still override per-line.
+
+#### Phase 13.B — Deployed-Asset Tracking (later)
+
+The original Phase 13 plan stands. Tracks individual serial-numbered
+hardware units installed at customer facilities — separate from the
+catalog (which defines part *types*) but composes with it (a deployed
+item references a `catalog_item_id` for its metadata).
+
+**Initial scope ideas:**
+- Per-customer, per-facility inventory locations (`inventory_facilities`).
+- Item records (`inventory_items`) with serial number, current facility,
+  status (`on_hand` / `installed` / `removed` / `scrapped` / `rma_pending`),
+  install date, notes; references `catalog_items.id` for type metadata.
+- Append-only movement history (`inventory_movements`) — every status or
+  location change writes a row, optionally with a `ticket_id` linking
+  back to the ticket that triggered the move.
+- Photos and document attachments per item.
+- Tech ticket capture: "Inventory actions" section on the form for
+  install / remove / transfer, with a typeahead over existing items
+  scoped to the ticket's customer.
+- Search + reporting: "all items at facility X", "items installed in
+  date range", "items not serviced in N months".
+
+Detailed schema, RLS policies, admin UI, tech mobile capture flow, and
+reporting will be planned in a follow-up pass closer to implementation.
+
+#### Phase 13.C — Per-customer catalog markup overrides (deferred)
+
+If specific customers warrant non-standard markups (parallel to the
+per-customer classification rates we already ship), add a
+`customer_catalog_markups` table keyed on `(customer_id, catalog_item_id)`
+with the same lookup pattern. Not built yet; raise when there's a real
+need.
 
 ---
 
