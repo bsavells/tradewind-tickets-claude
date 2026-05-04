@@ -1,16 +1,20 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { AlertCircle } from 'lucide-react'
 import { SignaturePad, type SignaturePadRef } from '@/components/SignaturePad'
 
 interface SignatureCaptureFormProps {
-  /** Called with the typed name and PNG blob when the user clicks Submit. Should throw on failure. */
-  onSign: (signerName: string, blob: Blob) => Promise<void>
+  /** Called with the typed name, PNG blob, and (optional) re-sign reason when the user clicks Submit. Should throw on failure. */
+  onSign: (signerName: string, blob: Blob, reason?: string) => Promise<void>
   onCancel?: () => void
   showCancel?: boolean
   submitLabel?: string
+  /** When set, render the Reason field pre-populated. Typically the auto-derived
+   *  summary of what changed since the last signature; the user can override. */
+  defaultReason?: string
 }
 
 export function SignatureCaptureForm({
@@ -18,11 +22,19 @@ export function SignatureCaptureForm({
   onCancel,
   showCancel = true,
   submitLabel = 'Submit Signature',
+  defaultReason,
 }: SignatureCaptureFormProps) {
   const [signerName, setSignerName] = useState('')
+  const [reason, setReason] = useState(defaultReason ?? '')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const padRef = useRef<SignaturePadRef>(null)
+
+  // Sync the reason field if the parent's defaultReason loads after mount
+  // (the audit-log fetch is async).
+  useEffect(() => {
+    if (defaultReason !== undefined) setReason(defaultReason)
+  }, [defaultReason])
 
   async function handleSubmit() {
     setError(null)
@@ -37,7 +49,7 @@ export function SignatureCaptureForm({
     setSubmitting(true)
     try {
       const blob = await padRef.current!.toBlob()
-      await onSign(signerName.trim(), blob)
+      await onSign(signerName.trim(), blob, reason.trim() || undefined)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save signature. Please try again.')
     } finally {
@@ -77,6 +89,20 @@ export function SignatureCaptureForm({
           autoComplete="name"
         />
       </div>
+
+      {defaultReason !== undefined && (
+        <div className="space-y-1.5">
+          <Label htmlFor="resign-reason">Reason for re-signing</Label>
+          <Textarea
+            id="resign-reason"
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder="Auto-filled from recent ticket changes. Edit if needed."
+            disabled={submitting}
+            rows={2}
+          />
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 text-destructive text-sm">

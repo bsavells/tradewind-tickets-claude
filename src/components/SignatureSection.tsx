@@ -1,12 +1,17 @@
 import { useState } from 'react'
-import { PenLine, Mail, AlertCircle, Trash2 } from 'lucide-react'
+import { PenLine, Mail, AlertCircle, Trash2, RefreshCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useTicketSignature, useRequestSignatureToken, useClearSignature } from '@/hooks/useTicketSignature'
+import {
+  useTicketSignature,
+  useRequestSignatureToken,
+  useClearSignature,
+  useLastSignatureClear,
+} from '@/hooks/useTicketSignature'
 import { SignatureCaptureModal } from '@/components/SignatureCaptureModal'
 import { SignatureDisplay } from '@/components/SignatureDisplay'
 
@@ -17,6 +22,7 @@ interface SignatureSectionProps {
 
 export function SignatureSection({ ticketId, canEdit }: SignatureSectionProps) {
   const { data: signature, isLoading } = useTicketSignature(ticketId)
+  const { data: clearedContext } = useLastSignatureClear(signature ? undefined : ticketId)
   const requestToken = useRequestSignatureToken()
   const clearSignature = useClearSignature()
 
@@ -111,16 +117,28 @@ export function SignatureSection({ ticketId, canEdit }: SignatureSectionProps) {
 
   return (
     <>
+      {clearedContext && (
+        <div className="rounded-md border border-amber-300/70 bg-amber-50 p-3 text-sm space-y-1.5 dark:border-amber-700/40 dark:bg-amber-950/30">
+          <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
+            <RefreshCcw className="h-3.5 w-3.5" />
+            Signature cleared — re-sign required
+          </div>
+          <p className="text-xs text-amber-900/80 dark:text-amber-200/80">
+            <span className="font-medium">Reason:</span> {clearedContext.reason}
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-2">
         <Button
           type="button"
-          variant="outline"
+          variant={clearedContext ? 'default' : 'outline'}
           size="sm"
           className="gap-1.5 flex-1"
           onClick={() => setCaptureOpen(true)}
         >
           <PenLine className="h-3.5 w-3.5" />
-          Get Signature
+          {clearedContext ? 'Re-sign' : 'Get Signature'}
         </Button>
         <Button
           type="button"
@@ -139,6 +157,7 @@ export function SignatureSection({ ticketId, canEdit }: SignatureSectionProps) {
         open={captureOpen}
         onClose={() => setCaptureOpen(false)}
         onSuccess={() => setCaptureOpen(false)}
+        defaultReason={clearedContext?.reason}
       />
 
       {/* Request signature dialog */}

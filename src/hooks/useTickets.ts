@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { enqueue as enqueueSync } from '@/lib/syncQueue'
+import { diffTicket, isMeaningfulDiff, summariseDiff, type Diffable } from '@/lib/ticketDiff'
 
 /**
  * Result type for mutations that may be queued when the network is down.
@@ -19,6 +20,130 @@ function isRetryableError(err: unknown): boolean {
   }
   const msg = String((err as Error)?.message ?? '').toLowerCase()
   return msg.includes('network') || msg.includes('failed to fetch') || msg.includes('timeout')
+}
+
+// ── Audit + signature helpers ────────────────────────────────────────────────
+
+/**
+ * Read the current ticket + all child rows so the caller can diff against
+ * a pending form update. Shape mirrors `Diffable` (the slice of TicketFormData
+ * that ticketDiff understands) so the diff helper can compare directly.
+ */
+async function fetchTicketBefore(id: string): Promise<Diffable | null> {
+  const { data, error } = await supabase
+    .from('tickets')
+    .select(`
+      customer_id, requestor, job_number, job_location, job_problem,
+      ticket_type, work_date, work_description, equipment_enabled,
+      ticket_materials(id, sort_order, qty, part_number, description),
+      ticket_labor(id, sort_order, user_id, first_name, last_name,
+                   classification_snapshot, entry_mode, start_time, end_time,
+                   hours, reg_rate),
+      ticket_vehicles(id, sort_order, vehicle_id, vehicle_label,
+                      mileage_start, mileage_end, rate),
+      ticket_equipment(id, sort_order, equip_number, hours, rate)
+    `)
+    .eq('id', id)
+    .single()
+  if (error || !data) return null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const t = data as any
+  return {
+    customer_id: t.customer_id,
+    requestor: t.requestor ?? '',
+    job_number: t.job_number ?? '',
+    job_location: t.job_location ?? '',
+    job_problem: t.job_problem ?? '',
+    ticket_type: t.ticket_type ?? '',
+    work_date: t.work_date,
+    work_description: t.work_description ?? '',
+    equipment_enabled: !!t.equipment_enabled,
+    materials: (t.ticket_materials ?? []).map((m: Record<string, unknown>) => ({
+      id: m.id, sort_order: m.sort_order, qty: m.qty,
+      part_number: m.part_number ?? '', description: m.description ?? '',
+    })) as TicketMaterialInput[],
+    labor: (t.ticket_labor ?? []).map((l: Record<string, unknown>) => ({
+      id: l.id, sort_order: l.sort_order, user_id: l.user_id ?? null,
+      first_name: l.first_name, last_name: l.last_name,
+      classification_snapshot: l.classification_snapshot ?? '',
+      entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock'),
+      start_time: typeof l.start_time === 'string' ? l.start_time.slice(0, 5) : '',
+      end_time: typeof l.end_time === 'string' ? l.end_time.slice(0, 5) : '',
+      hours: l.hours ?? null, reg_rate: l.reg_rate ?? null,
+    })) as TicketLaborInput[],
+    vehicles: (t.ticket_vehicles ?? []).map((v: Record<string, unknown>) => ({
+      id: v.id, sort_order: v.sort_order, vehicle_id: v.vehicle_id ?? null,
+      vehicle_label: v.vehicle_label ?? '',
+      mileage_start: v.mileage_start ?? null, mileage_end: v.mileage_end ?? null,
+      rate: v.rate ?? null,
+    })) as TicketVehicleInput[],
+    equipment: (t.ticket_equipment ?? []).map((e: Record<string, unknown>) => ({
+      id: e.id, sort_order: e.sort_order, equip_number: e.equip_number ?? '',
+      hours: e.hours ?? null, rate: e.rate ?? null,
+    })) as TicketEquipmentInput[],
+  }
+}
+
+interface AuditEntry {
+  ticketId: string
+  action: Database['public']['Enums']['audit_action']
+  actorId: string
+  actorName: string
+  note?: string | null
+  diff?: unknown
+}
+
+async function writeAuditEntry(entry: AuditEntry): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase.from('ticket_audit_log') as any).insert({
+    ticket_id: entry.ticketId,
+    actor_id: entry.actorId,
+    actor_name: entry.actorName,
+    action: entry.action,
+    note: entry.note ?? null,
+    diff: entry.diff ?? null,
+  })
+  if (error) {
+    // Audit failures should not break the user's primary action — the
+    // ticket update itself already succeeded by this point. Log and swallow.
+    console.warn('[audit]', entry.action, 'failed:', error)
+  }
+}
+
+/**
+ * If the ticket has a customer signature, delete it and write a
+ * `signature_cleared` audit entry summarising what changed. Returns true
+ * when a signature was actually cleared so callers can react if needed.
+ */
+async function clearSignatureForEdit(
+  ticketId: string,
+  changeSummary: string,
+  actor: { id: string; name: string },
+): Promise<boolean> {
+  const { data: sig } = await supabase
+    .from('ticket_signatures')
+    .select('id')
+    .eq('ticket_id', ticketId)
+    .eq('kind', 'customer')
+    .maybeSingle()
+  if (!sig) return false
+  const { error } = await supabase
+    .from('ticket_signatures')
+    .delete()
+    .eq('ticket_id', ticketId)
+    .eq('kind', 'customer')
+  if (error) {
+    console.warn('[signature] clear failed:', error)
+    return false
+  }
+  await writeAuditEntry({
+    ticketId,
+    action: 'signature_cleared',
+    actorId: actor.id,
+    actorName: actor.name,
+    note: changeSummary || 'Ticket edited after signing',
+  })
+  return true
 }
 import type { Database } from '@/lib/database.types'
 
@@ -231,6 +356,7 @@ export function useCreateTicket() {
 // --- Update an existing draft/returned ticket ---
 export function useUpdateTicket() {
   const qc = useQueryClient()
+  const { profile } = useAuth()
 
   return useMutation({
     mutationFn: async (
@@ -244,6 +370,11 @@ export function useUpdateTicket() {
       }
 
       try {
+        // Capture the pre-edit state for the diff before we touch the row.
+        // Best-effort — if it fails we still apply the update; we just
+        // skip the audit entry and the signature auto-clear.
+        const before = await fetchTicketBefore(id).catch(() => null)
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase.from('tickets') as any)
           .update({
@@ -262,6 +393,30 @@ export function useUpdateTicket() {
 
         await deleteChildRows(id)
         await saveChildRows(id, form)
+
+        // Audit + signature lifecycle. Only write the audit entry when the
+        // diff is non-trivial — this avoids spamming the log with no-op
+        // saves (e.g. tech opens the form and re-saves without changes).
+        if (before && profile) {
+          const diff = diffTicket(before, form)
+          if (isMeaningfulDiff(diff)) {
+            const summary = summariseDiff(diff)
+            const actor = {
+              id: profile.id,
+              name: `${profile.first_name} ${profile.last_name}`,
+            }
+            await writeAuditEntry({
+              ticketId: id,
+              action: 'edited',
+              actorId: actor.id,
+              actorName: actor.name,
+              note: summary || null,
+              diff: diff as unknown as Record<string, unknown>,
+            })
+            await clearSignatureForEdit(id, summary, actor)
+          }
+        }
+
         return undefined
       } catch (err) {
         if (isRetryableError(err)) {
@@ -274,6 +429,9 @@ export function useUpdateTicket() {
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
       qc.invalidateQueries({ queryKey: ['ticket', id] })
+      // Audit log + signature row may have changed too.
+      qc.invalidateQueries({ queryKey: ['ticket-signature', id] })
+      qc.invalidateQueries({ queryKey: ['ticket-signature-clear', id] })
     },
   })
 }
@@ -433,17 +591,43 @@ export function useAdminUpdateTicketPricing() {
       )
       if (rpcErr) throw rpcErr
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.from('ticket_audit_log') as any).insert({
-        ticket_id: ticketId,
-        actor_id: profile!.id,
-        actor_name: `${profile!.first_name} ${profile!.last_name}`,
+      // Coarse summary of what the admin touched. Detailed before/after
+      // values would require fetching the prior row state per cell — overkill
+      // for now; counts make the audit log readable enough.
+      const counts = {
+        materials: edits.materials?.length ?? 0,
+        labor: edits.labor?.length ?? 0,
+        vehicles: edits.vehicles?.length ?? 0,
+        equipment: edits.equipment?.length ?? 0,
+      }
+      const parts: string[] = []
+      if (counts.labor) parts.push(`${counts.labor} labor row${counts.labor === 1 ? '' : 's'}`)
+      if (counts.materials) parts.push(`${counts.materials} material row${counts.materials === 1 ? '' : 's'}`)
+      if (counts.vehicles) parts.push(`${counts.vehicles} vehicle row${counts.vehicles === 1 ? '' : 's'}`)
+      if (counts.equipment) parts.push(`${counts.equipment} equipment row${counts.equipment === 1 ? '' : 's'}`)
+      const summary = parts.length ? `Pricing updated: ${parts.join(', ')}` : 'Pricing updated'
+
+      const actor = {
+        id: profile!.id,
+        name: `${profile!.first_name} ${profile!.last_name}`,
+      }
+      await writeAuditEntry({
+        ticketId,
         action: 'edited_by_admin',
+        actorId: actor.id,
+        actorName: actor.name,
+        note: summary,
+        diff: counts as unknown as Record<string, unknown>,
       })
+      // Pricing changes invalidate any prior customer signature — the
+      // dollar amount the customer signed off on has shifted.
+      await clearSignatureForEdit(ticketId, summary, actor)
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['tickets'] })
       qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
+      qc.invalidateQueries({ queryKey: ['ticket-signature', ticketId] })
+      qc.invalidateQueries({ queryKey: ['ticket-signature-clear', ticketId] })
     },
   })
 }

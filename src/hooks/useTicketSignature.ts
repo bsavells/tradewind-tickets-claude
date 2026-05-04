@@ -52,10 +52,13 @@ export function useUploadSignature() {
       ticketId,
       signerName,
       blob,
+      reason,
     }: {
       ticketId: string
       signerName: string
       blob: Blob
+      /** Optional reason carried from a re-sign prompt; saved on the audit entry. */
+      reason?: string
     }): Promise<TicketSignature> => {
       const path = `${profile!.company_id}/${ticketId}/customer.png`
 
@@ -80,6 +83,17 @@ export function useUploadSignature() {
         .single()
       if (upsertErr) throw upsertErr
 
+      // Audit entry — best-effort, doesn't block the success path.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: auditErr } = await (supabase.from('ticket_audit_log') as any).insert({
+        ticket_id: ticketId,
+        actor_id: profile!.id,
+        actor_name: `${profile!.first_name} ${profile!.last_name}`,
+        action: 'signature_captured',
+        note: reason?.trim() || `Signed by ${signerName}`,
+      })
+      if (auditErr) console.warn('[audit] signature_captured failed:', auditErr)
+
       const { data: signed } = await supabase.storage
         .from(BUCKET)
         .createSignedUrl(path, 3600)
@@ -88,6 +102,7 @@ export function useUploadSignature() {
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['ticket-signature', ticketId] })
+      qc.invalidateQueries({ queryKey: ['ticket-signature-clear', ticketId] })
       qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
       qc.invalidateQueries({ queryKey: ['tickets'] })
     },
@@ -97,9 +112,10 @@ export function useUploadSignature() {
 // ── Clear an existing signature ──────────────────────────────────────────────
 export function useClearSignature() {
   const qc = useQueryClient()
+  const { profile } = useAuth()
 
   return useMutation({
-    mutationFn: async ({ ticketId }: { ticketId: string }) => {
+    mutationFn: async ({ ticketId, reason }: { ticketId: string; reason?: string }) => {
       // Delete the DB row (storage file can stay — it'll be overwritten on re-sign)
       const { error } = await supabase
         .from('ticket_signatures')
@@ -107,12 +123,59 @@ export function useClearSignature() {
         .eq('ticket_id', ticketId)
         .eq('kind', 'customer')
       if (error) throw error
+
+      // Audit entry — best-effort. The re-sign banner reads this entry's
+      // note as the auto-fill reason.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: auditErr } = await (supabase.from('ticket_audit_log') as any).insert({
+        ticket_id: ticketId,
+        actor_id: profile?.id ?? null,
+        actor_name: profile ? `${profile.first_name} ${profile.last_name}` : null,
+        action: 'signature_cleared',
+        note: reason?.trim() || 'Cleared manually',
+      })
+      if (auditErr) console.warn('[audit] signature_cleared failed:', auditErr)
     },
     onSuccess: (_data, { ticketId }) => {
       qc.invalidateQueries({ queryKey: ['ticket-signature', ticketId] })
+      qc.invalidateQueries({ queryKey: ['ticket-signature-clear', ticketId] })
       qc.invalidateQueries({ queryKey: ['ticket', ticketId] })
       qc.invalidateQueries({ queryKey: ['tickets'] })
     },
+  })
+}
+
+// ── Fetch the latest signature_cleared event for the re-sign banner ─────────
+//
+// Returns the most recent `signature_cleared` entry IF there is no
+// `signature_captured` entry that's newer (which would mean someone already
+// re-signed). The banner reads `note` to pre-fill the reason field.
+export interface ClearedSignatureContext {
+  reason: string
+  occurredAt: string
+}
+
+export function useLastSignatureClear(ticketId: string | undefined) {
+  return useQuery({
+    queryKey: ['ticket-signature-clear', ticketId],
+    queryFn: async (): Promise<ClearedSignatureContext | null> => {
+      const { data, error } = await supabase
+        .from('ticket_audit_log')
+        .select('action, note, occurred_at')
+        .eq('ticket_id', ticketId!)
+        .in('action', ['signature_cleared', 'signature_captured'])
+        .order('occurred_at', { ascending: false })
+        .limit(1)
+      if (error) throw error
+      const latest = data?.[0]
+      if (!latest || latest.action !== 'signature_cleared') return null
+      return {
+        reason: latest.note ?? 'Ticket edited after signing',
+        occurredAt: latest.occurred_at as string,
+      }
+    },
+    enabled: !!ticketId,
+    staleTime: 0,
   })
 }
 

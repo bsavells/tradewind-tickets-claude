@@ -1080,6 +1080,8 @@ export type Database = {
         | "finalized"
         | "unfinalized"
         | "exported"
+        | "signature_cleared"
+        | "signature_captured"
       export_format: "pdf" | "xlsx"
       signature_kind: "customer" | "supervisor"
       ticket_status: "draft" | "submitted" | "returned" | "finalized"
@@ -1221,6 +1223,8 @@ export const Constants = {
         "finalized",
         "unfinalized",
         "exported",
+        "signature_cleared",
+        "signature_captured",
       ],
       export_format: ["pdf", "xlsx"],
       signature_kind: ["customer", "supervisor"],
