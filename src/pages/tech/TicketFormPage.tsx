@@ -16,6 +16,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCustomers } from '@/hooks/useCustomers'
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
+import { useProfiles } from '@/hooks/useProfiles'
 import { useCreateTicket, useUpdateTicket, useTicket } from '@/hooks/useTickets'
 import { useCustomerRates } from '@/hooks/useCustomerRates'
 import { useDraftAutosave, loadDraft, clearDraft } from '@/hooks/useDraftAutosave'
@@ -148,6 +149,7 @@ export function TicketFormPage() {
   const { data: customers = [], isLoading: customersLoading } = useCustomers()
   const { data: classifications = [], isLoading: classificationsLoading } = useClassifications()
   const { data: vehicles = [] } = useVehicles()
+  const { data: profiles = [] } = useProfiles()
   const { data: existingTicket, isLoading: ticketLoading } = useTicket(id)
   const createTicket = useCreateTicket()
   const updateTicket = useUpdateTicket()
@@ -419,6 +421,15 @@ export function TicketFormPage() {
   const customerOptions = customers.filter(c => c.active)
   // classificationOptions is declared higher up (used by the rate helper).
   const vehicleOptions = vehicles.filter(v => v.active)
+  // Active company members for the labor-row Tech picker. Sorted by last
+  // name to match the rest of the app.
+  const teamMemberOptions = profiles
+    .filter(p => p.active)
+    .sort((a, b) => {
+      const lhs = `${a.last_name ?? ''} ${a.first_name ?? ''}`.trim().toLowerCase()
+      const rhs = `${b.last_name ?? ''} ${b.first_name ?? ''}`.trim().toLowerCase()
+      return lhs.localeCompare(rhs)
+    })
 
   function addLaborRow() {
     // Inherit start/end from the most recent existing row that has times
@@ -475,6 +486,27 @@ export function TicketFormPage() {
       setValue(`labor.${index}.classification_snapshot`, c.name)
       const rate = rateForClassification(classId)
       if (rate != null) setValue(`labor.${index}.reg_rate`, rate)
+    }
+  }
+
+  /**
+   * Apply a team-member selection to a labor row: copies the profile's
+   * name + classification + rate into the row, and stores the user_id so
+   * we keep the link back to the actual profile (useful for per-user
+   * reporting later). The user can still edit any of the name fields
+   * after selection — handy when a sub-contractor's name is close to a
+   * teammate's but not exactly the same.
+   */
+  function onLaborTechSelect(index: number, profileId: string) {
+    const p = teamMemberOptions.find(p => p.id === profileId)
+    if (!p) return
+    setValue(`labor.${index}.user_id`, p.id)
+    setValue(`labor.${index}.first_name`, p.first_name ?? '', { shouldValidate: true })
+    setValue(`labor.${index}.last_name`, p.last_name ?? '', { shouldValidate: true })
+    if (p.classification_id) {
+      // Reuse the classification path so reg_rate gets populated via the
+      // customer-override → default chain.
+      onLaborClassification(index, p.classification_id)
     }
   }
 
@@ -724,6 +756,28 @@ export function TicketFormPage() {
                     />
                     </div>
                   </div>
+
+                  {teamMemberOptions.length > 0 && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Team Member</Label>
+                      <Select
+                        value={watch(`labor.${i}.user_id`) ?? ''}
+                        onValueChange={(v) => onLaborTechSelect(i, v)}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select a team member… (or type a name below)" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-60">
+                          {teamMemberOptions.map(p => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.first_name} {p.last_name}
+                              {p.classifications?.name ? ` · ${p.classifications.name}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
