@@ -157,7 +157,15 @@ export function TicketFormPage() {
   const [contactPickerKey, setContactPickerKey] = useState(0)
   const draftId = id ?? 'new'
 
-  // Default labor row from current user's profile
+  // Default labor row from current user's profile.
+  //
+  // Defaults start/end to a typical 8 AM – 5 PM shift instead of an empty
+  // picker. Most field tickets fall in that window; the user can adjust when
+  // they don't. Importantly, having a value set means Radix's Select scrolls
+  // the dropdown to that time on open (instead of starting at midnight).
+  const DEFAULT_START_TIME = '08:00'
+  const DEFAULT_END_TIME = '17:00'
+
   const defaultLaborRow = useCallback(() => ({
     sort_order: 0,
     user_id: profile?.id ?? null,
@@ -167,8 +175,8 @@ export function TicketFormPage() {
       c => c.id === profile?.classification_id
     )?.name ?? '',
     entry_mode: 'clock' as const,
-    start_time: '',
-    end_time: '',
+    start_time: DEFAULT_START_TIME,
+    end_time: DEFAULT_END_TIME,
     hours: null,
     reg_rate: null,
   }), [profile, classifications])
@@ -413,6 +421,17 @@ export function TicketFormPage() {
   const vehicleOptions = vehicles.filter(v => v.active)
 
   function addLaborRow() {
+    // Inherit start/end from the most recent existing row that has times
+    // set, so adding a second tech to a multi-tech crew doesn't make the
+    // user re-pick their shift hours. Falls back to the company-default
+    // 8 AM – 5 PM if no prior row has times yet.
+    const existing = getValues('labor') ?? []
+    const lastWithTimes = [...existing].reverse().find(
+      l => l && l.entry_mode !== 'flat' && (l.start_time || l.end_time),
+    )
+    const startTime = lastWithTimes?.start_time || DEFAULT_START_TIME
+    const endTime = lastWithTimes?.end_time || DEFAULT_END_TIME
+
     labor.append({
       sort_order: labor.fields.length,
       user_id: null,
@@ -420,8 +439,8 @@ export function TicketFormPage() {
       last_name: '',
       classification_snapshot: '',
       entry_mode: 'clock',
-      start_time: '',
-      end_time: '',
+      start_time: startTime,
+      end_time: endTime,
       hours: null,
       reg_rate: null,
     })
