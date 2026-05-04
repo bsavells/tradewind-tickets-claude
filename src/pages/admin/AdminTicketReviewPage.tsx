@@ -30,6 +30,8 @@ import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
 import { TimeSelect } from '@/components/TimeSelect'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useClassifications } from '@/hooks/useClassifications'
+import { useCustomerRates } from '@/hooks/useCustomerRates'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime, calcHours } from '@/lib/timeUtils'
 import { format } from 'date-fns'
@@ -83,6 +85,7 @@ interface TicketData {
   id: string
   ticket_number: string
   status: 'draft' | 'submitted' | 'returned' | 'finalized'
+  customer_id: string
   work_date: string
   ticket_type: string | null
   requestor: string
@@ -125,6 +128,13 @@ export function AdminTicketReviewPage() {
 
   const t = rawTicket as unknown as TicketData | undefined
 
+  // Customer-specific overrides + classification defaults so we can auto-fill
+  // empty rate cells without making the admin retype them. Lookup is by
+  // classification *name* (since ticket_labor stores `classification_snapshot`,
+  // not an id) → matched against the active classifications list.
+  const { data: classifications = [] } = useClassifications()
+  const { data: customerRates } = useCustomerRates(t?.customer_id)
+
   // Local editable state for pricing
   const [materials, setMaterials] = useState<MaterialRow[]>([])
   const [labor, setLabor] = useState<LaborRow[]>([])
@@ -144,16 +154,41 @@ export function AdminTicketReviewPage() {
   useEffect(() => {
     if (!t) return
     setMaterials(t.ticket_materials.map(m => ({ ...m })))
-    setLabor(t.ticket_labor.map(l => ({
-      ...l,
-      entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock') as 'clock' | 'flat',
-      start_time: l.start_time ? l.start_time.slice(0, 5) : l.start_time,
-      end_time: l.end_time ? l.end_time.slice(0, 5) : l.end_time,
-    })))
+    setLabor(t.ticket_labor.map(l => {
+      // Resolve missing rates from (customer override → classification default).
+      // We only fill in null values — anything the tech or a prior admin set is
+      // preserved.
+      let regRate: number | null = l.reg_rate
+      let otRate: number | null = l.ot_rate
+      const className = l.classification_snapshot
+      if (className && (regRate == null || otRate == null)) {
+        const cls = classifications.find(c => c.name === className)
+        if (cls) {
+          const override = customerRates?.get(cls.id)
+          if (regRate == null) {
+            regRate = override ? override.reg_rate : Number(cls.default_reg_rate)
+          }
+          if (otRate == null) {
+            otRate = override ? override.ot_rate : Number(cls.default_ot_rate)
+          }
+        }
+      }
+      return {
+        ...l,
+        entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock') as 'clock' | 'flat',
+        start_time: l.start_time ? l.start_time.slice(0, 5) : l.start_time,
+        end_time: l.end_time ? l.end_time.slice(0, 5) : l.end_time,
+        reg_rate: regRate,
+        ot_rate: otRate,
+      }
+    }))
     setVehicles(t.ticket_vehicles.map(v => ({ ...v })))
     setEquipment(t.ticket_equipment.map(e => ({ ...e })))
     setDirty(false)
-  }, [t])
+    // Re-run when override rates load (initially undefined, then a Map). That
+    // way the auto-fill kicks in even if classifications/rates load after the
+    // ticket data.
+  }, [t, classifications, customerRates])
 
   // Live computed grand total reflecting unsaved changes
   const liveGrandTotal = useMemo(() => {

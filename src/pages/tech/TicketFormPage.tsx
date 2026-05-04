@@ -17,6 +17,7 @@ import { useCustomers } from '@/hooks/useCustomers'
 import { useClassifications } from '@/hooks/useClassifications'
 import { useVehicles } from '@/hooks/useVehicles'
 import { useCreateTicket, useUpdateTicket, useTicket } from '@/hooks/useTickets'
+import { useCustomerRates } from '@/hooks/useCustomerRates'
 import { useDraftAutosave, loadDraft, clearDraft } from '@/hooks/useDraftAutosave'
 import { calcHours, todayISO } from '@/lib/timeUtils'
 import type { TicketFormData } from '@/hooks/useTickets'
@@ -202,7 +203,25 @@ export function TicketFormPage() {
   // Watched values for live calculations
   const watchedLabor = useWatch({ control, name: 'labor' })
   const watchedVehicles = useWatch({ control, name: 'vehicles' })
+  const watchedCustomerId = useWatch({ control, name: 'customer_id' })
   const equipmentEnabled = useWatch({ control, name: 'equipment_enabled' })
+
+  // Per-customer labor rate overrides. Empty Map when the customer has no
+  // overrides — `rateForClassification` falls back to the classification
+  // default in that case.
+  const { data: customerRates } = useCustomerRates(watchedCustomerId || undefined)
+
+  // Filtered classification list — declared up here so the rate helper and the
+  // customer-change effect (both below) can reach it without TDZ issues.
+  const classificationOptions = (classifications as { id: string; name: string; active: boolean; default_reg_rate: number; default_ot_rate: number }[]).filter(c => c.active)
+
+  /** Resolve the reg_rate for a classification id, preferring customer override. */
+  function rateForClassification(classId: string): number | null {
+    const override = customerRates?.get(classId)
+    if (override) return override.reg_rate
+    const c = classificationOptions.find(c => c.id === classId)
+    return c ? Number(c.default_reg_rate) : null
+  }
 
   // Populate from existing ticket (edit mode)
   useEffect(() => {
@@ -295,6 +314,27 @@ export function TicketFormPage() {
     })
   }, [watchedLabor.map(r => `${r.entry_mode}|${r.start_time}|${r.end_time}`).join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Re-evaluate every labor row's reg_rate when the customer changes (or
+  // override rates load), so a tech can pick a customer first, then add
+  // labor rows, then change customer and have rates auto-update.
+  useEffect(() => {
+    if (!watchedCustomerId) return
+    if (!classificationOptions.length) return
+    watchedLabor.forEach((row, i) => {
+      const className = row.classification_snapshot
+      if (!className) return
+      const c = classificationOptions.find(c => c.name === className)
+      if (!c) return
+      const newRate = rateForClassification(c.id)
+      if (newRate != null && newRate !== row.reg_rate) {
+        setValue(`labor.${i}.reg_rate`, newRate)
+      }
+    })
+    // We don't depend on `watchedLabor` itself — that would create a write/read loop —
+    // only on the customer + the override map shape.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedCustomerId, customerRates, classificationOptions.length])
+
   // Auto-calc vehicle miles
   useEffect(() => {
     // vehicle totals just displayed — no extra field needed (total_miles is computed in DB)
@@ -369,7 +409,7 @@ export function TicketFormPage() {
   }
 
   const customerOptions = customers.filter(c => c.active)
-  const classificationOptions = classifications.filter(c => c.active)
+  // classificationOptions is declared higher up (used by the rate helper).
   const vehicleOptions = vehicles.filter(v => v.active)
 
   function addLaborRow() {
@@ -414,7 +454,8 @@ export function TicketFormPage() {
     const c = classificationOptions.find(c => c.id === classId)
     if (c) {
       setValue(`labor.${index}.classification_snapshot`, c.name)
-      setValue(`labor.${index}.reg_rate`, Number(c.default_reg_rate))
+      const rate = rateForClassification(classId)
+      if (rate != null) setValue(`labor.${index}.reg_rate`, rate)
     }
   }
 

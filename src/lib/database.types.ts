@@ -70,6 +70,48 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_classification_rates: {
+        Row: {
+          classification_id: string
+          created_at: string
+          customer_id: string
+          ot_rate: number
+          reg_rate: number
+          updated_at: string
+        }
+        Insert: {
+          classification_id: string
+          created_at?: string
+          customer_id: string
+          ot_rate: number
+          reg_rate: number
+          updated_at?: string
+        }
+        Update: {
+          classification_id?: string
+          created_at?: string
+          customer_id?: string
+          ot_rate?: number
+          reg_rate?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_classification_rates_classification_id_fkey"
+            columns: ["classification_id"]
+            isOneToOne: false
+            referencedRelation: "classifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_classification_rates_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_contacts: {
         Row: {
           created_at: string

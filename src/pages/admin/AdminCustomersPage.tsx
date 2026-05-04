@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Pencil, UserPlus, Trash2, Building2 } from 'lucide-react'
+import { Plus, Pencil, UserPlus, Trash2, Building2, DollarSign, Save } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +20,11 @@ import {
 import { SortableTableHeader } from '@/components/SortableTableHeader'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useTableSort, cmpString, cmpBool, cmpNumber } from '@/hooks/useTableSort'
+import { useClassifications } from '@/hooks/useClassifications'
+import {
+  useCustomerRates, useSaveCustomerRates,
+  type CustomerRateMap,
+} from '@/hooks/useCustomerRates'
 import type { Database } from '@/lib/database.types'
 
 type Customer = Database['public']['Tables']['customers']['Row']
@@ -252,6 +257,224 @@ function ContactsPanel({ customer }: { customer: Customer & { customer_contacts:
   )
 }
 
+// ---- Rate-overrides panel ----
+
+interface RateInput {
+  reg_rate: string
+  ot_rate: string
+}
+
+/**
+ * Per-customer rate override editor.
+ *
+ * Empty inputs render the default rate as a placeholder so admins can see
+ * what the row will bill at without leaving the page. On save we diff the
+ * desired state against the server state and emit upserts for set cells +
+ * deletes for cleared cells.
+ */
+function RatesPanel({ customer }: { customer: Customer }) {
+  const { data: classifications = [] } = useClassifications()
+  const { data: serverRates = new Map(), isLoading } = useCustomerRates(customer.id)
+  const saveRates = useSaveCustomerRates()
+
+  const activeClassifications = useMemo(
+    () => classifications.filter(c => c.active),
+    [classifications],
+  )
+
+  // Local form state, keyed by classification id. We hold strings so the
+  // user can clear a field; we coerce on save.
+  const [inputs, setInputs] = useState<Map<string, RateInput>>(new Map())
+  const [error, setError] = useState<string | null>(null)
+
+  // Sync from server when serverRates changes (initial load + after save).
+  useEffect(() => {
+    const next = new Map<string, RateInput>()
+    for (const [classId, rate] of serverRates) {
+      next.set(classId, {
+        reg_rate: String(rate.reg_rate),
+        ot_rate: String(rate.ot_rate),
+      })
+    }
+    setInputs(next)
+    setError(null)
+  }, [serverRates])
+
+  function setField(classId: string, field: keyof RateInput, value: string) {
+    setInputs(prev => {
+      const next = new Map(prev)
+      const existing = next.get(classId) ?? { reg_rate: '', ot_rate: '' }
+      next.set(classId, { ...existing, [field]: value })
+      return next
+    })
+  }
+
+  // Build the desired CustomerRateMap from inputs:
+  //  - Both fields empty → no override (omitted from the map)
+  //  - Both fields filled → override with parsed numbers
+  //  - One field filled → invalid
+  function buildDesired(): { ok: boolean; map: CustomerRateMap; invalid: string[] } {
+    const desired: CustomerRateMap = new Map()
+    const invalid: string[] = []
+    for (const [classId, fields] of inputs) {
+      const reg = fields.reg_rate.trim()
+      const ot = fields.ot_rate.trim()
+      if (!reg && !ot) continue
+      const regNum = Number(reg)
+      const otNum = Number(ot)
+      if (!reg || !ot || !Number.isFinite(regNum) || !Number.isFinite(otNum) || regNum < 0 || otNum < 0) {
+        const name = activeClassifications.find(c => c.id === classId)?.name ?? classId
+        invalid.push(name)
+        continue
+      }
+      desired.set(classId, { reg_rate: regNum, ot_rate: otNum })
+    }
+    return { ok: invalid.length === 0, map: desired, invalid }
+  }
+
+  const dirty = useMemo(() => {
+    // Compare current inputs with serverRates; quick string-based check.
+    if (inputs.size === 0 && serverRates.size === 0) return false
+    // Different number of overrides
+    let setRows = 0
+    for (const [classId, fields] of inputs) {
+      const reg = fields.reg_rate.trim()
+      const ot = fields.ot_rate.trim()
+      if (!reg && !ot) continue
+      setRows++
+      const server = serverRates.get(classId)
+      if (!server) return true
+      if (Number(reg) !== server.reg_rate || Number(ot) !== server.ot_rate) return true
+    }
+    return setRows !== serverRates.size
+  }, [inputs, serverRates])
+
+  async function handleSave() {
+    setError(null)
+    const built = buildDesired()
+    if (!built.ok) {
+      setError(`Both Reg and OT rates are required for: ${built.invalid.join(', ')}.`)
+      return
+    }
+    try {
+      await saveRates.mutateAsync({
+        customerId: customer.id,
+        desired: built.map,
+        previous: serverRates,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save rates.')
+    }
+  }
+
+  return (
+    <div className="px-4 pb-4 pt-2 space-y-3 border-t border-border/40">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Rate Overrides
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Leave blank to use the default classification rate.
+        </p>
+      </div>
+
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground italic">Loading rates…</p>
+      ) : activeClassifications.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">
+          No active classifications. Add one in Settings → Classifications first.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {activeClassifications.map(c => {
+            const fields = inputs.get(c.id) ?? { reg_rate: '', ot_rate: '' }
+            const defaultReg = Number(c.default_reg_rate).toFixed(2)
+            const defaultOt = Number(c.default_ot_rate).toFixed(2)
+            return (
+              <div
+                key={c.id}
+                className="grid grid-cols-12 gap-2 items-center rounded-md border bg-muted/30 px-3 py-2"
+              >
+                <div className="col-span-12 md:col-span-4 text-sm font-medium">
+                  {c.name}
+                </div>
+                <div className="col-span-6 md:col-span-4">
+                  <Label className="text-xs text-muted-foreground">Reg $/hr</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      className="h-8 pl-7"
+                      placeholder={`${defaultReg} default`}
+                      value={fields.reg_rate}
+                      onChange={e => setField(c.id, 'reg_rate', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="col-span-6 md:col-span-4">
+                  <Label className="text-xs text-muted-foreground">OT $/hr</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      className="h-8 pl-7"
+                      placeholder={`${defaultOt} default`}
+                      value={fields.ot_rate}
+                      onChange={e => setField(c.id, 'ot_rate', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {error && <p className="text-xs text-destructive">{error}</p>}
+
+      {dirty && (
+        <div className="flex justify-end gap-2 pt-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8"
+            onClick={() => {
+              // Revert to server state
+              const next = new Map<string, RateInput>()
+              for (const [classId, rate] of serverRates) {
+                next.set(classId, {
+                  reg_rate: String(rate.reg_rate),
+                  ot_rate: String(rate.ot_rate),
+                })
+              }
+              setInputs(next)
+              setError(null)
+            }}
+            disabled={saveRates.isPending}
+          >
+            Discard
+          </Button>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={handleSave}
+            disabled={saveRates.isPending}
+          >
+            <Save className="h-3.5 w-3.5" />
+            {saveRates.isPending ? 'Saving…' : 'Save rates'}
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---- Main page ----
 type CustomerSortKey = 'name' | 'address' | 'contacts' | 'active'
 
@@ -350,6 +573,7 @@ export function AdminCustomersPage() {
                       <TableRow key={`${c.id}-contacts`}>
                         <TableCell colSpan={5} className="p-0 bg-muted/20">
                           <ContactsPanel customer={c} />
+                          <RatesPanel customer={c} />
                         </TableCell>
                       </TableRow>
                     )}
