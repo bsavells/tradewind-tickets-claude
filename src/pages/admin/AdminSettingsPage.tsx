@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Building2, Users, Tag, Truck, ChevronRight } from 'lucide-react'
+import { Building2, Users, Tag, Truck, ChevronRight, Package } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
@@ -27,6 +27,12 @@ const sections = [
     icon: Truck,
     label: 'Vehicles',
     description: 'Company vehicles and mileage rates',
+  },
+  {
+    to: '/admin/catalog',
+    icon: Package,
+    label: 'Catalog',
+    description: 'Vendors and parts inventory with per-item markup',
   },
 ]
 

@@ -42,6 +42,8 @@ const AdminClassificationsPage = lazy(() =>
   import('@/pages/admin/AdminClassificationsPage').then(m => ({ default: m.AdminClassificationsPage })))
 const AdminVehiclesPage = lazy(() =>
   import('@/pages/admin/AdminVehiclesPage').then(m => ({ default: m.AdminVehiclesPage })))
+const AdminCatalogPage = lazy(() =>
+  import('@/pages/admin/AdminCatalogPage').then(m => ({ default: m.AdminCatalogPage })))
 const NotificationsPage = lazy(() =>
   import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
 const NotificationPrefsPage = lazy(() =>
@@ -131,6 +133,7 @@ export default function App() {
                     <Route path="/admin/customers" element={<AdminCustomersPage />} />
                     <Route path="/admin/users" element={<AdminUsersPage />} />
                     <Route path="/admin/vehicles" element={<AdminVehiclesPage />} />
+                    <Route path="/admin/catalog" element={<AdminCatalogPage />} />
                     <Route path="/admin/settings" element={<AdminSettingsPage />} />
                     <Route path="/admin/settings/classifications" element={<AdminClassificationsPage />} />
                     <Route path="/admin/settings/vehicles" element={<AdminVehiclesPage />} />
