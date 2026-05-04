@@ -14,6 +14,88 @@ export type Database = {
   }
   public: {
     Tables: {
+      catalog_items: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          markup_pct: number
+          packaging_unit: string | null
+          part_number: string | null
+          size: string | null
+          unit_cost: number | null
+          updated_at: string
+          vendor_id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          markup_pct?: number
+          packaging_unit?: string | null
+          part_number?: string | null
+          size?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+          vendor_id: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          markup_pct?: number
+          packaging_unit?: string | null
+          part_number?: string | null
+          size?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_items_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_vendors: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_vendors_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classifications: {
         Row: {
           active: boolean
@@ -652,6 +734,7 @@ export type Database = {
       }
       ticket_materials: {
         Row: {
+          catalog_item_id: string | null
           description: string | null
           id: string
           part_number: string | null
@@ -662,6 +745,7 @@ export type Database = {
           total: number | null
         }
         Insert: {
+          catalog_item_id?: string | null
           description?: string | null
           id?: string
           part_number?: string | null
@@ -672,6 +756,7 @@ export type Database = {
           total?: number | null
         }
         Update: {
+          catalog_item_id?: string | null
           description?: string | null
           id?: string
           part_number?: string | null
@@ -682,6 +767,13 @@ export type Database = {
           total?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ticket_materials_catalog_item_id_fkey"
+            columns: ["catalog_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ticket_materials_ticket_id_fkey"
             columns: ["ticket_id"]
@@ -1032,7 +1124,19 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      catalog_items_techview: {
+        Row: {
+          active: boolean | null
+          description: string | null
+          id: string | null
+          packaging_unit: string | null
+          part_number: string | null
+          size: string | null
+          vendor_id: string | null
+          vendor_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auth_company_id: { Args: never; Returns: string }

@@ -23,7 +23,9 @@
       "Bash(cp public/favicon.svg src/themes/default-backup/favicon.svg.bak)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(python)",
+      "Bash(2>&1)"
     ]
   }
 }
