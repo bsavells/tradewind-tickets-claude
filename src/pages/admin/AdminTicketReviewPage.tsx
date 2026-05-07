@@ -161,56 +161,75 @@ export function AdminTicketReviewPage() {
   const [exportOpen, setExportOpen] = useState(false)
   const [includePhotos, setIncludePhotos] = useState(true)
 
+  // Primary load: hydrate local edit state from the ticket payload exactly
+  // as the server returned it. Intentionally does NOT depend on auxiliary
+  // reference data (catalog, classifications, customer rate overrides) —
+  // any failure or slow load of those should not block / re-fire the
+  // primary render, and edits the admin makes shouldn't be wiped when
+  // those auxiliary queries refetch.
   useEffect(() => {
     if (!t) return
-    setMaterials(t.ticket_materials.map(m => {
-      // Auto-fill price_each from the catalog when the row is linked and the
-      // price isn't already set. Anything the tech or a prior admin pinned is
-      // preserved untouched.
-      let priceEach: number | null = m.price_each
-      if (priceEach == null && m.catalog_item_id) {
-        const cat = catalogById.get(m.catalog_item_id)
-        if (cat) {
-          const sell = sellPrice(cat)
-          if (sell != null) priceEach = sell
-        }
-      }
-      return { ...m, price_each: priceEach }
-    }))
-    setLabor(t.ticket_labor.map(l => {
-      // Resolve missing rates from (customer override → classification default).
-      // We only fill in null values — anything the tech or a prior admin set is
-      // preserved.
-      let regRate: number | null = l.reg_rate
-      let otRate: number | null = l.ot_rate
-      const className = l.classification_snapshot
-      if (className && (regRate == null || otRate == null)) {
-        const cls = classifications.find(c => c.name === className)
-        if (cls) {
-          const override = customerRates?.get(cls.id)
-          if (regRate == null) {
-            regRate = override ? override.reg_rate : Number(cls.default_reg_rate)
-          }
-          if (otRate == null) {
-            otRate = override ? override.ot_rate : Number(cls.default_ot_rate)
-          }
-        }
-      }
-      return {
-        ...l,
-        entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock') as 'clock' | 'flat',
-        start_time: l.start_time ? l.start_time.slice(0, 5) : l.start_time,
-        end_time: l.end_time ? l.end_time.slice(0, 5) : l.end_time,
-        reg_rate: regRate,
-        ot_rate: otRate,
-      }
-    }))
+    setMaterials(t.ticket_materials.map(m => ({ ...m })))
+    setLabor(t.ticket_labor.map(l => ({
+      ...l,
+      entry_mode: (l.entry_mode === 'flat' ? 'flat' : 'clock') as 'clock' | 'flat',
+      start_time: l.start_time ? l.start_time.slice(0, 5) : l.start_time,
+      end_time: l.end_time ? l.end_time.slice(0, 5) : l.end_time,
+    })))
     setVehicles(t.ticket_vehicles.map(v => ({ ...v })))
     setEquipment(t.ticket_equipment.map(e => ({ ...e })))
     setDirty(false)
-    // Re-run when override rates or the catalog map load (initially undefined,
-    // then populated). That way the auto-fill kicks in even if reference data
-    // loads after the ticket itself.
+  }, [t])
+
+  // Secondary auto-fill: when reference data is available, populate any
+  // line-item rates / prices that came back null. Only touches null cells —
+  // anything the tech or a prior admin pinned stays untouched, and any edits
+  // the admin makes after this runs are preserved (we filter by `null` again
+  // before each write, so a freshly-edited cell with a value is skipped).
+  useEffect(() => {
+    if (!t) return
+    // Catalog price auto-fill on materials.
+    setMaterials(prev => {
+      let changed = false
+      const next = prev.map(m => {
+        if (m.price_each != null) return m
+        if (!m.catalog_item_id) return m
+        const cat = catalogById.get(m.catalog_item_id)
+        if (!cat) return m
+        const sell = sellPrice(cat)
+        if (sell == null) return m
+        changed = true
+        return { ...m, price_each: sell }
+      })
+      return changed ? next : prev
+    })
+    // Customer/classification rate auto-fill on labor.
+    setLabor(prev => {
+      let changed = false
+      const next = prev.map(l => {
+        if (l.reg_rate != null && l.ot_rate != null) return l
+        const className = l.classification_snapshot
+        if (!className) return l
+        const cls = classifications.find(c => c.name === className)
+        if (!cls) return l
+        const override = customerRates?.get(cls.id)
+        let regRate = l.reg_rate
+        let otRate = l.ot_rate
+        if (regRate == null) {
+          regRate = override ? override.reg_rate : Number(cls.default_reg_rate)
+          changed = true
+        }
+        if (otRate == null) {
+          otRate = override ? override.ot_rate : Number(cls.default_ot_rate)
+          changed = true
+        }
+        return changed ? { ...l, reg_rate: regRate, ot_rate: otRate } : l
+      })
+      return changed ? next : prev
+    })
+    // Don't re-fire on every materials/labor edit — only when reference
+    // data shape changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t, classifications, customerRates, catalogById])
 
   // Live computed grand total reflecting unsaved changes

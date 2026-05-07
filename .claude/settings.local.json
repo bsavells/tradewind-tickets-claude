@@ -26,7 +26,15 @@
       "Bash(git push *)",
       "Bash(python)",
       "Bash(2>&1)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s https://tradewind-tickets-claude.vercel.app/ -o /tmp/index.html)",
+      "Bash(curl -s https://tradewind-tickets-claude.vercel.app/)",
+      "Bash(curl -s https://tradewind-tickets-claude.vercel.app/assets/index-CMDu9fHX.js)",
+      "Bash(curl -s \"https://tradewind-tickets-claude.vercel.app/assets/AdminTicketReviewPage-zUViYoiP.js\" -o /tmp/admin_review.js)",
+      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__list_teams",
+      "mcp__68a1928a-08ee-4c66-8108-e682ddeda496__list_deployments",
+      "Bash(curl -s https://tradewind-tickets-claude.vercel.app/assets/AdminTicketReviewPage-zUViYoiP.js)",
+      "Bash(curl -s -o /tmp/admin_review2.js \"https://tradewind-tickets-claude-bdpblpnf9-bsavells-projects.vercel.app/assets/AdminTicketReviewPage-zUViYoiP.js\")"
     ]
   }
 }
