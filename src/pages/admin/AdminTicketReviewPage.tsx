@@ -114,6 +114,71 @@ function num(v: string): number | null {
   return Number.isFinite(n) ? n : null
 }
 
+/**
+ * Markup-percent input that lets the user type freely without the value
+ * getting rounded under them.
+ *
+ * Why this needs its own component: the displayed markup is *derived* from
+ * the line's cost and price, so naively driving the input from
+ * `((price - cost)/cost * 100).toFixed(1)` reformats the value on every
+ * keystroke. Typing "5" while the input shows "30.0" briefly produces
+ * "30.05", which `toFixed(1)` then snaps to "30.0" or "30.1" depending on
+ * binary rounding — so the user's digit appears to vanish or jump by 0.1.
+ *
+ * Fix: while the input is focused, render a local draft string the user
+ * controls. On each change we still propagate the parsed value upstream so
+ * Total recomputes live. On blur we drop back to the formatted derived
+ * value so the column reads cleanly when you're not editing it.
+ */
+function MarkupInput({
+  cost, price, disabled, ariaLabel, onPriceChange,
+}: {
+  cost: number | null
+  price: number | null
+  disabled: boolean
+  ariaLabel: string
+  onPriceChange: (newPrice: number) => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const editable = !disabled && cost != null && cost > 0
+
+  const derivedMarkup = (cost != null && cost > 0 && price != null)
+    ? ((price - cost) / cost) * 100
+    : null
+
+  const displayValue = draft != null
+    ? draft
+    : derivedMarkup != null ? derivedMarkup.toFixed(1) : ''
+
+  return (
+    <Input
+      type="number"
+      step="0.1"
+      aria-label={ariaLabel}
+      className="h-8 text-right"
+      value={displayValue}
+      placeholder={editable ? '' : '—'}
+      disabled={!editable}
+      onFocus={() => {
+        // Seed the draft from whatever's currently displayed so the user
+        // doesn't lose their place when they click in.
+        setDraft(derivedMarkup != null ? derivedMarkup.toFixed(1) : '')
+      }}
+      onChange={e => {
+        const v = e.target.value
+        setDraft(v)
+        if (cost != null && cost > 0) {
+          const m = parseFloat(v)
+          if (Number.isFinite(m)) {
+            onPriceChange(Number((cost * (1 + m / 100)).toFixed(2)))
+          }
+        }
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  )
+}
+
 export function AdminTicketReviewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -295,22 +360,10 @@ export function AdminTicketReviewPage() {
     setDirty(true)
   }
 
-  /**
-   * Edit the row's markup % directly. We don't persist markup on the ticket
-   * row itself — instead we treat it as a derived value of cost ↔ price.
-   * Editing it recomputes price_each from `cost * (1 + markup/100)` and
-   * stores that. The displayed markup is then re-derived from the new price
-   * on the next render. Markup is only meaningful when we have a cost
-   * reference, so this is a no-op when cost is missing or zero.
-   */
-  function updateMaterialMarkup(id: string, markupStr: string, cost: number | null) {
-    if (cost == null || cost === 0) return
-    const markup = num(markupStr)
-    if (markup == null) return
-    const newPrice = Number((cost * (1 + markup / 100)).toFixed(2))
-    setMaterials(prev => prev.map(m => m.id === id ? { ...m, price_each: newPrice } : m))
-    setDirty(true)
-  }
+  // Markup edits are handled inline by the <MarkupInput /> subcomponent
+  // (which owns its own focused-draft state to avoid the value getting
+  // reformatted under the user). It writes the resulting price_each back
+  // through onPriceChange.
 
   function updateLaborField(id: string, field: keyof LaborRow, value: string) {
     setLabor(prev => prev.map(l => {
@@ -558,11 +611,7 @@ export function AdminTicketReviewPage() {
               const cat = m.catalog_item_id ? catalogById.get(m.catalog_item_id) : undefined
               const costNum = cat?.unit_cost != null ? Number(cat.unit_cost) : null
               const priceNum = m.price_each != null ? Number(m.price_each) : null
-              const markup = (costNum != null && costNum > 0 && priceNum != null)
-                ? ((priceNum - costNum) / costNum) * 100
-                : null
               const lineTotal = priceNum != null ? m.qty * priceNum : null
-              const markupEditable = canEdit && costNum != null && costNum > 0
               return (
                 <div key={m.id} className="grid grid-cols-12 gap-2 items-center text-sm py-1 border-b last:border-0">
                   <div className="col-span-1 text-muted-foreground tabular-nums">{m.qty}×</div>
@@ -574,15 +623,15 @@ export function AdminTicketReviewPage() {
                     {costNum != null ? `$${costNum.toFixed(2)}` : '—'}
                   </div>
                   <div className="col-span-2">
-                    <Input
-                      type="number"
-                      step="0.1"
-                      aria-label={`Markup percent for ${m.part_number ?? m.description ?? 'material'}`}
-                      className="h-8 text-right"
-                      value={markup != null ? markup.toFixed(1) : ''}
-                      placeholder={markupEditable ? '' : '—'}
-                      onChange={e => updateMaterialMarkup(m.id, e.target.value, costNum)}
-                      disabled={!markupEditable}
+                    <MarkupInput
+                      cost={costNum}
+                      price={priceNum}
+                      disabled={!canEdit}
+                      ariaLabel={`Markup percent for ${m.part_number ?? m.description ?? 'material'}`}
+                      onPriceChange={newPrice => {
+                        setMaterials(prev => prev.map(row => row.id === m.id ? { ...row, price_each: newPrice } : row))
+                        setDirty(true)
+                      }}
                     />
                   </div>
                   <div className="col-span-2">
