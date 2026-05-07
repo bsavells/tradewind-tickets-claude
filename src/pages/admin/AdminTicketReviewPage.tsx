@@ -545,9 +545,9 @@ export function AdminTicketReviewPage() {
             {/* Column headers — labels so the admin knows what each input means. */}
             <div className="grid grid-cols-12 gap-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground pb-1 border-b">
               <div className="col-span-1">Qty</div>
-              <div className="col-span-4">Item</div>
+              <div className="col-span-3">Item</div>
               <div className="col-span-2 text-right">Cost</div>
-              <div className="col-span-1 text-right">Markup %</div>
+              <div className="col-span-2 text-right">Markup %</div>
               <div className="col-span-2 text-right">Price</div>
               <div className="col-span-2 text-right">Total</div>
             </div>
@@ -566,20 +566,20 @@ export function AdminTicketReviewPage() {
               return (
                 <div key={m.id} className="grid grid-cols-12 gap-2 items-center text-sm py-1 border-b last:border-0">
                   <div className="col-span-1 text-muted-foreground tabular-nums">{m.qty}×</div>
-                  <div className="col-span-4 min-w-0">
+                  <div className="col-span-3 min-w-0">
                     {m.part_number && <span className="text-xs text-muted-foreground">{m.part_number} · </span>}
                     <span className="break-words">{m.description}</span>
                   </div>
                   <div className="col-span-2 text-right text-muted-foreground tabular-nums">
                     {costNum != null ? `$${costNum.toFixed(2)}` : '—'}
                   </div>
-                  <div className="col-span-1">
+                  <div className="col-span-2">
                     <Input
                       type="number"
                       step="0.1"
                       aria-label={`Markup percent for ${m.part_number ?? m.description ?? 'material'}`}
                       className="h-8 text-right"
-                      value={markup != null ? markup.toFixed(2) : ''}
+                      value={markup != null ? markup.toFixed(1) : ''}
                       placeholder={markupEditable ? '' : '—'}
                       onChange={e => updateMaterialMarkup(m.id, e.target.value, costNum)}
                       disabled={!markupEditable}
