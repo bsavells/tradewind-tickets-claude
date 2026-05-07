@@ -35,7 +35,7 @@ async function fetchTicketBefore(id: string): Promise<Diffable | null> {
     .select(`
       customer_id, requestor, job_number, job_location, job_problem,
       ticket_type, work_date, work_description, equipment_enabled,
-      ticket_materials(id, sort_order, qty, part_number, description),
+      ticket_materials(id, sort_order, qty, part_number, description, catalog_item_id),
       ticket_labor(id, sort_order, user_id, first_name, last_name,
                    classification_snapshot, entry_mode, start_time, end_time,
                    hours, reg_rate),
@@ -61,6 +61,7 @@ async function fetchTicketBefore(id: string): Promise<Diffable | null> {
     materials: (t.ticket_materials ?? []).map((m: Record<string, unknown>) => ({
       id: m.id, sort_order: m.sort_order, qty: m.qty,
       part_number: m.part_number ?? '', description: m.description ?? '',
+      catalog_item_id: (m.catalog_item_id as string | null) ?? null,
     })) as TicketMaterialInput[],
     labor: (t.ticket_labor ?? []).map((l: Record<string, unknown>) => ({
       id: l.id, sort_order: l.sort_order, user_id: l.user_id ?? null,
@@ -156,6 +157,10 @@ export interface TicketMaterialInput {
   qty: number
   part_number: string
   description: string
+  /** Optional link back to a catalog row (Phase 13.A). The free-text
+   *  fields above stay populated as snapshots so historical line items
+   *  remain readable if the catalog row is later edited or deleted. */
+  catalog_item_id: string | null
 }
 
 export interface TicketLaborInput {
@@ -848,6 +853,7 @@ async function saveChildRows(ticketId: string, form: TicketFormData) {
           qty: m.qty,
           part_number: m.part_number || null,
           description: m.description || null,
+          catalog_item_id: m.catalog_item_id ?? null,
         }))
       )
     )

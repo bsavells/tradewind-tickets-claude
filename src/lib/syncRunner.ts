@@ -274,6 +274,7 @@ async function insertChildRows(ticketId: string, form: TicketFormDataLike) {
           qty: m.qty,
           part_number: m.part_number || null,
           description: m.description || null,
+          catalog_item_id: m.catalog_item_id ?? null,
         })),
       ),
     )

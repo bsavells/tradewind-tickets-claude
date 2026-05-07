@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, Save, ArrowLeft, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, Save, ArrowLeft, RotateCcw, Package, Search as SearchIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,8 @@ import { cn } from '@/lib/utils'
 import { PhotoUploader } from '@/components/PhotoUploader'
 import { SignatureSection } from '@/components/SignatureSection'
 import { TimeSelect } from '@/components/TimeSelect'
+import { CatalogItemPicker } from '@/components/CatalogItemPicker'
+import type { CatalogItemTech } from '@/hooks/useCatalog'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 
 // ---- Schema ----
@@ -35,6 +37,7 @@ const materialSchema = z.object({
   qty: z.preprocess(v => parseFloat(String(v)), z.number().min(0.01)),
   part_number: z.string().optional().default(''),
   description: z.string().optional().default(''),
+  catalog_item_id: z.string().nullable().default(null),
 })
 
 const laborSchema = z.object({
@@ -157,6 +160,10 @@ export function TicketFormPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [draftRestored, setDraftRestored] = useState(false)
   const [contactPickerKey, setContactPickerKey] = useState(0)
+  // null  = picker closed.
+  // 'new' = picker is open to add a new row from a catalog pick.
+  // number = picker is open to replace the contents of an existing row.
+  const [catalogPickerTarget, setCatalogPickerTarget] = useState<number | 'new' | null>(null)
   const draftId = id ?? 'new'
 
   // Default labor row from current user's profile.
@@ -240,7 +247,7 @@ export function TicketFormPage() {
       customer_id: string; requestor: string; job_number: string | null
       job_location: string | null; job_problem: string | null; ticket_type: string | null
       work_date: string; work_description: string | null; equipment_enabled: boolean
-      ticket_materials: { id: string; sort_order: number; qty: number; part_number: string | null; description: string | null }[]
+      ticket_materials: { id: string; sort_order: number; qty: number; part_number: string | null; description: string | null; catalog_item_id: string | null }[]
       ticket_labor: { id: string; sort_order: number; user_id: string | null; first_name: string; last_name: string; classification_snapshot: string | null; entry_mode: string; start_time: string | null; end_time: string | null; hours: number | null; reg_rate: number | null }[]
       ticket_vehicles: { id: string; sort_order: number; vehicle_id: string | null; vehicle_label: string | null; mileage_start: number | null; mileage_end: number | null; rate: number | null }[]
       ticket_equipment: { id: string; sort_order: number; equip_number: string | null; hours: number | null; rate: number | null }[]
@@ -430,6 +437,26 @@ export function TicketFormPage() {
       const rhs = `${b.last_name ?? ''} ${b.first_name ?? ''}`.trim().toLowerCase()
       return lhs.localeCompare(rhs)
     })
+
+  function handleCatalogPick(item: CatalogItemTech) {
+    if (catalogPickerTarget === 'new') {
+      // Add a new material row pre-filled from the catalog item. Tech still
+      // sets qty.
+      materials.append({
+        sort_order: materials.fields.length,
+        qty: 1,
+        part_number: item.part_number ?? '',
+        description: item.description ?? '',
+        catalog_item_id: item.id,
+      })
+    } else if (typeof catalogPickerTarget === 'number') {
+      // Replace the contents of an existing row.
+      setValue(`materials.${catalogPickerTarget}.part_number`, item.part_number ?? '')
+      setValue(`materials.${catalogPickerTarget}.description`, item.description ?? '')
+      setValue(`materials.${catalogPickerTarget}.catalog_item_id`, item.id)
+    }
+    setCatalogPickerTarget(null)
+  }
 
   function addLaborRow() {
     // Inherit start/end from the most recent existing row that has times
@@ -662,51 +689,95 @@ export function TicketFormPage() {
         <Section
           title="Material"
           action={
-            <Button type="button" size="sm" variant="outline" className="gap-1.5 h-7 text-xs"
-              onClick={() => materials.append({ sort_order: materials.fields.length, qty: 1, part_number: '', description: '' })}>
-              <Plus className="h-3 w-3" /> Add Row
-            </Button>
+            <div className="flex gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-7 text-xs"
+                onClick={() => setCatalogPickerTarget('new')}
+              >
+                <Package className="h-3 w-3" /> From Catalog
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-7 text-xs"
+                onClick={() => materials.append({
+                  sort_order: materials.fields.length, qty: 1,
+                  part_number: '', description: '', catalog_item_id: null,
+                })}
+              >
+                <Plus className="h-3 w-3" /> Add Row
+              </Button>
+            </div>
           }
         >
           <div className="space-y-2">
             {materials.fields.length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-2">No materials — tap "Add Row" if parts apply.</p>
+              <p className="text-sm text-muted-foreground text-center py-2">
+                No materials — tap "From Catalog" to pick a known SKU, or "Add Row" to enter one manually.
+              </p>
             )}
             {/* Column headers — hidden on smallest screens */}
             {materials.fields.length > 0 && (
-              <div className="hidden sm:grid grid-cols-[3rem_6rem_1fr_1.5rem] gap-2 text-xs text-muted-foreground px-1">
+              <div className="hidden sm:grid grid-cols-[3rem_6rem_1fr_3rem] gap-2 text-xs text-muted-foreground px-1">
                 <span>Qty</span><span>Part #</span><span>Description</span><span />
               </div>
             )}
-            {materials.fields.map((field, i) => (
-              <div key={field.id} className="grid grid-cols-[3rem_6rem_1fr_1.5rem] gap-2 items-start">
-                <Input
-                  type="number" step="1" min="1"
-                  {...register(`materials.${i}.qty`)}
-                  className="h-9 text-sm"
-                  placeholder="1"
-                />
-                <Input
-                  {...register(`materials.${i}.part_number`)}
-                  className="h-9 text-sm"
-                  placeholder="Optional"
-                />
-                <Input
-                  {...register(`materials.${i}.description`)}
-                  className="h-9 text-sm"
-                  placeholder="Description"
-                />
-                <div className="flex items-center justify-center h-9">
-                  <DeleteRowBtn
-                    onClick={() => materials.remove(i)}
-                    disabled={materials.fields.length === 1}
-                    label={`Remove material row ${i + 1}`}
+            {materials.fields.map((field, i) => {
+              const fromCatalog = !!watch(`materials.${i}.catalog_item_id`)
+              return (
+                <div key={field.id} className="grid grid-cols-[3rem_6rem_1fr_3rem] gap-2 items-start">
+                  <Input
+                    type="number" step="1" min="1"
+                    {...register(`materials.${i}.qty`)}
+                    className="h-9 text-sm"
+                    placeholder="1"
                   />
+                  <Input
+                    {...register(`materials.${i}.part_number`)}
+                    className="h-9 text-sm"
+                    placeholder="Optional"
+                  />
+                  <Input
+                    {...register(`materials.${i}.description`)}
+                    className="h-9 text-sm"
+                    placeholder="Description"
+                  />
+                  <div className="flex items-center justify-center h-9 gap-0.5">
+                    <button
+                      type="button"
+                      aria-label={`Pick from catalog for row ${i + 1}`}
+                      title={fromCatalog ? 'Linked to catalog — re-pick to swap' : 'Pick from catalog'}
+                      onClick={() => setCatalogPickerTarget(i)}
+                      className={cn(
+                        'transition-colors',
+                        fromCatalog
+                          ? 'text-[var(--color-tw-blue)] hover:text-[var(--color-tw-navy)]'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      <SearchIcon className="h-4 w-4" />
+                    </button>
+                    <DeleteRowBtn
+                      onClick={() => materials.remove(i)}
+                      disabled={materials.fields.length === 1}
+                      label={`Remove material row ${i + 1}`}
+                    />
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Section>
+
+        <CatalogItemPicker
+          open={catalogPickerTarget !== null}
+          onClose={() => setCatalogPickerTarget(null)}
+          onPick={handleCatalogPick}
+        />
 
         {/* ---- Labor ---- */}
         <Section

@@ -32,6 +32,7 @@ import { TimeSelect } from '@/components/TimeSelect'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
 import { useClassifications } from '@/hooks/useClassifications'
 import { useCustomerRates } from '@/hooks/useCustomerRates'
+import { useCatalogItemsAdmin, sellPrice } from '@/hooks/useCatalog'
 import { statusLabel, statusVariant } from '@/lib/ticketStatus'
 import { formatTime, calcHours } from '@/lib/timeUtils'
 import { format } from 'date-fns'
@@ -43,6 +44,7 @@ interface MaterialRow {
   description: string | null
   price_each: number | null
   total: number | null
+  catalog_item_id: string | null
 }
 
 interface LaborRow {
@@ -134,6 +136,14 @@ export function AdminTicketReviewPage() {
   // not an id) → matched against the active classifications list.
   const { data: classifications = [] } = useClassifications()
   const { data: customerRates } = useCustomerRates(t?.customer_id)
+  // Catalog lookup so material rows linked to a catalog item can have their
+  // price_each auto-populated from `unit_cost * (1 + markup_pct/100)`. Admin
+  // hooks gate this to admin users; we just pass through the result.
+  const { data: catalogItems = [] } = useCatalogItemsAdmin({ activeOnly: false })
+  const catalogById = useMemo(
+    () => new Map(catalogItems.map(i => [i.id, i])),
+    [catalogItems],
+  )
 
   // Local editable state for pricing
   const [materials, setMaterials] = useState<MaterialRow[]>([])
@@ -153,7 +163,20 @@ export function AdminTicketReviewPage() {
 
   useEffect(() => {
     if (!t) return
-    setMaterials(t.ticket_materials.map(m => ({ ...m })))
+    setMaterials(t.ticket_materials.map(m => {
+      // Auto-fill price_each from the catalog when the row is linked and the
+      // price isn't already set. Anything the tech or a prior admin pinned is
+      // preserved untouched.
+      let priceEach: number | null = m.price_each
+      if (priceEach == null && m.catalog_item_id) {
+        const cat = catalogById.get(m.catalog_item_id)
+        if (cat) {
+          const sell = sellPrice(cat)
+          if (sell != null) priceEach = sell
+        }
+      }
+      return { ...m, price_each: priceEach }
+    }))
     setLabor(t.ticket_labor.map(l => {
       // Resolve missing rates from (customer override → classification default).
       // We only fill in null values — anything the tech or a prior admin set is
@@ -185,10 +208,10 @@ export function AdminTicketReviewPage() {
     setVehicles(t.ticket_vehicles.map(v => ({ ...v })))
     setEquipment(t.ticket_equipment.map(e => ({ ...e })))
     setDirty(false)
-    // Re-run when override rates load (initially undefined, then a Map). That
-    // way the auto-fill kicks in even if classifications/rates load after the
-    // ticket data.
-  }, [t, classifications, customerRates])
+    // Re-run when override rates or the catalog map load (initially undefined,
+    // then populated). That way the auto-fill kicks in even if reference data
+    // loads after the ticket itself.
+  }, [t, classifications, customerRates, catalogById])
 
   // Live computed grand total reflecting unsaved changes
   const liveGrandTotal = useMemo(() => {

@@ -25,7 +25,8 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(python)",
-      "Bash(2>&1)"
+      "Bash(2>&1)",
+      "mcp__Claude_Preview__preview_start"
     ]
   }
 }
